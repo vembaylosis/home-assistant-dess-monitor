@@ -119,5 +119,5 @@ class MyCoordinator(DataUpdateCoordinator):
         except TimeoutError as err:
             # Raising ConfigEntryAuthFailed will cancel future updates
             # and start a config flow with SOURCE_REAUTH (async_step_reauth)
-            raise ConfigEntryAuthFailed from err
+            raise err
         # except ApiError as err:
