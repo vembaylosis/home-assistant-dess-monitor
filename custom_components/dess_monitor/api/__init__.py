@@ -1,9 +1,13 @@
 import hashlib
 import time
 import urllib
+from enum import StrEnum
 
 import aiohttp
 
+class DeviceParameterName(StrEnum):
+    BATTERY_VOLTAGE = 'Battery Voltage'
+    SOUTH = 'south'
 
 async def auth_user(username, password_hash):
     async with aiohttp.ClientSession() as session:
