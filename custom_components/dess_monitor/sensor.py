@@ -152,7 +152,7 @@ class BatteryVoltageSensor(SensorBase):
         # As per the sensor, this must be a unique value within this domain. This is done
         # by using the device ID, and appending "_battery"
         # self._attr_native_value = None
-        self._attr_unique_id = f"{self._inverter_device.inverter_id}_battery_voltage"
+        self._attr_unique_id = f"{self._inverter_device.inverter_id}_battery"
 
         # The name of the entity
         self._attr_name = f"{self._inverter_device.name} Battery Voltage"
