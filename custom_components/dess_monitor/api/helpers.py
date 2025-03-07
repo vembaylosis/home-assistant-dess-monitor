@@ -3,19 +3,19 @@ def resolve_battery_charging_current(data, device_data):
         case 2376:
             # PV charging current
             pv = float(next((x for x in data['last_data']['pars']['gd_'] if
-                             x['par'] == 'PV charging current'),
-                            {'val': '0'}))
+                             x['par'].lower() == 'PV charging current'.lower()),
+                            {'val': '0'})['val'])
             # AC charging current
             ac = float(next((x for x in data['last_data']['pars']['gd_'] if
-                             x['par'] == 'AC charging current'),
-                            {'val': '0'}))
+                             x['par'].lower() == 'AC charging current'.lower()),
+                            {'val': '0'})['val'])
             return pv + ac
         case _:
             return \
                 float(next(
                     (x for x in data['last_data']['pars']['bt_']
                      if
-                     x['id'] == 'bt_battery_charging_current' or x['par'] == 'Battery charging current'),
+                     x['id'] == 'bt_battery_charging_current' or x['par'].lower() == 'Battery charging current'.lower()),
                     {'val': '0'}
                 )['val'])
 
@@ -49,7 +49,8 @@ def resolve_battery_voltage(data, device_data):
                 float(next((x for x in
                             data['last_data']['pars']['bt_']
                             if
-                            x['id'] == 'bt_battery_voltage' or x['par'] == 'Battery voltage'), {'val': '0'})['val'])
+                            x['id'] == 'bt_battery_voltage' or x['par'].lower() == 'Battery Voltage'.lower()),
+                           {'val': '0'})['val'])
 
 
 def resolve_active_load_power(data, device_data):
@@ -97,5 +98,5 @@ def resolve_grid_frequency(data, device_data):
             return next((x for x in data['last_data']['pars']['gd_'] if
                          x['id'] == 'gd_grid_frequency' or
                          x['id'] == 'gd_ac_input_frequency' or
-                         x['par'] == 'Grid frequency'
+                         x['par'].lower() == 'Grid frequency'.lower()
                          ), {'val': None})['val']
