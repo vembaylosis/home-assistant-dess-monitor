@@ -148,10 +148,13 @@ def resolve_output_priority(data, device_data):
             if 'sy_' not in data['last_data']['pars']:
                 return None
             val = next((x for x in data['last_data']['pars']['sy_'] if
-                        x['name'].lower() == 'Output priority'.lower()), {'val': None})['val']
+                        x['par'].lower() == 'Output priority'.lower()), {'val': None})['val']
 
         case _:
-            return data['device_extra']['output_priority']
+            if 'device_extra' in data:
+                return data['device_extra']['output_priority']
+            else:
+                return None
 
     if val is not None and val.lower() in mapper:
         return mapper[val.lower()]
