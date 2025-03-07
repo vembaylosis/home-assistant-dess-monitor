@@ -278,7 +278,7 @@ class InverterOutputVoltageSensor(SensorBase):
         """Handle updated data from the coordinator."""
         self._attr_native_value = \
             next((x for x in self.coordinator.data[self._inverter_device.inverter_id]['last_data']['pars']['bc_'] if
-                  x['id'] == 'bc_output_voltage' or x['par'] == 'Output Voltage'), {'val': None})['val']
+                  x['id'] == 'bc_output_voltage' or x['par'].lower() == 'Output Voltage'.lower()), {'val': None})['val']
         self.async_write_ha_state()
 
 
