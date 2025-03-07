@@ -5,9 +5,11 @@ from enum import StrEnum
 
 import aiohttp
 
+
 class DeviceParameterName(StrEnum):
     BATTERY_VOLTAGE = 'Battery Voltage'
     SOUTH = 'south'
+
 
 async def auth_user(username, password_hash):
     async with aiohttp.ClientSession() as session:
@@ -64,6 +66,21 @@ async def create_auth_api_request(token, secret, params):
         # print(payload)
         params_path = urllib.parse.urlencode(payload, doseq=False, safe="@")
         url = f'https://web.dessmonitor.com/public/?{params_path}'
+        json = (await (await session.get(url)).json())
+        if json['err'] == 0:
+            return json['dat']
+        else:
+            raise Exception(
+                f'Error {json["err"]} while creating auth api request: {json["desc"]}'
+            )
+
+
+async def create_auth_api_remote_request(token, secret, params):
+    async with aiohttp.ClientSession() as session:
+        payload = generate_params_signature(token, secret, params)
+        # print(payload)
+        params_path = urllib.parse.urlencode(payload, doseq=False, safe="@")
+        url = f'https://web.dessmonitor.com/remote/?{params_path}'
         json = (await (await session.get(url)).json())
         if json['err'] == 0:
             return json['dat']
@@ -135,12 +152,12 @@ async def get_device_pars(token, secret, device_identity):
     return response
 
 
-async def get_device_ctrl_value(token, secret, device_identity, id):
+async def get_device_ctrl_value(token: str, secret: str, device_identity, param_id: str):
     payload = {
         'action': 'queryDeviceCtrlValue',
         'i18n': 'en_US',
         'source': '1',
-        'id': id,
+        'id': param_id,
         **extract_device_identity(device_identity),
     }
     response = await create_auth_api_request(token, secret, payload)
@@ -148,12 +165,38 @@ async def get_device_ctrl_value(token, secret, device_identity, id):
     return response
 
 
-async def get_device_ctrl_fields(token, secret, device_identity):
+async def get_device_ctrl_fields(token: str, secret: str, device_identity):
     payload = {
         'action': 'queryDeviceCtrlField',
         'i18n': 'en_US',
         'source': '1',
-        'id': id,
+        **extract_device_identity(device_identity),
+    }
+    response = await create_auth_api_request(token, secret, payload)
+
+    return response
+
+
+async def get_device_fields(token: str, secret: str, device_identity):
+    payload = {
+        'action': 'queryDeviceFields',
+        'i18n': 'en_US',
+        'source': '1',
+        **extract_device_identity(device_identity),
+    }
+    response = await create_auth_api_request(token, secret, payload)
+
+    return response
+
+
+async def get_device_historical_data(token: str, secret: str, device_identity):
+    payload = {
+        'action': 'queryDeviceDataOneDayPaging',
+        'i18n': 'en_US',
+        'source': '1',
+        'page': '0',
+        'pagesize': '15',
+        'date': '2025-03-07',
         **extract_device_identity(device_identity),
     }
     response = await create_auth_api_request(token, secret, payload)
@@ -171,5 +214,18 @@ async def get_collectors(token, secret, params):
         **params,
     }
     response = await create_auth_api_request(token, secret, payload)
+
+    return response
+
+
+async def set_ctrl_device_param(token: str, secret: str, device_identity, param_id: str, value: str):
+    payload = {
+        'action': 'ctrlDevice',
+        'i18n': 'en_US',
+        'id': param_id,
+        'val': value,
+        **extract_device_identity(device_identity),
+    }
+    response = await create_auth_api_remote_request(token, secret, payload)
 
     return response

@@ -46,4 +46,6 @@ class InverterDevice:
 
     @property
     def online(self) -> float:
+        if self.hub.coordinator.data is not None and self.inverter_id not in self.hub.coordinator.data:
+            return False
         return True

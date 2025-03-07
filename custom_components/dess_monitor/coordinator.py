@@ -4,12 +4,12 @@ from datetime import timedelta, datetime
 
 import async_timeout
 from homeassistant.core import HomeAssistant
-from homeassistant.exceptions import ConfigEntryAuthFailed
 from homeassistant.helpers.update_coordinator import (
     DataUpdateCoordinator,
 )
 
 from .api import get_device_last_data, get_devices, auth_user, get_device_energy_flow, get_device_pars
+from .api.helpers import get_inverter_output_priority
 
 _LOGGER = logging.getLogger(__name__)
 
@@ -106,13 +106,21 @@ class MyCoordinator(DataUpdateCoordinator):
 
                 query_device_pars_es = [get_device_pars(token, secret, device) for device in self.devices]
                 query_device_pars_es_results = await asyncio.gather(*query_device_pars_es)
+
+                query_device_output_priority = [get_inverter_output_priority(token, secret, device) for device in
+                                                self.devices]
+                query_device_output_priority_results = await asyncio.gather(*query_device_output_priority)
+
                 data_map = {}
                 for i, device in enumerate(self.devices):
                     data_map[device['pn']] = {
                         'last_data': last_results[i],
                         'energy_flow': web_query_device_energy_flow_es_results[i],
                         'pars': query_device_pars_es_results[i],
-                        'device': self.devices[i]
+                        'device': self.devices[i],
+                        'device_extra': {
+                            'output_priority': query_device_output_priority_results[i]
+                        }
                     }
                 return data_map
                 # return

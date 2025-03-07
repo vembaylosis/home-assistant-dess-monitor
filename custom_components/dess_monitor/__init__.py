@@ -1,4 +1,3 @@
-
 from __future__ import annotations
 
 from homeassistant.config_entries import ConfigEntry
@@ -10,7 +9,7 @@ from .coordinator import MyCoordinator
 
 # List of platforms to support. There should be a matching .py file for each,
 # eg <cover.py> and <sensor.py>
-PLATFORMS = [Platform.SENSOR]
+PLATFORMS = [Platform.SENSOR, Platform.SELECT]
 
 type HubConfigEntry = ConfigEntry[hub.Hub]
 

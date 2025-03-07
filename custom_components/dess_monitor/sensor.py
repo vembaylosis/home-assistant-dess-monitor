@@ -6,7 +6,7 @@ from homeassistant.components.sensor import (
 )
 from homeassistant.const import (
     UnitOfPower, UnitOfElectricPotential, UnitOfElectricCurrent, UnitOfEnergy, EntityCategory, UnitOfTemperature,
-    UnitOfFrequency
+    UnitOfFrequency, PERCENTAGE
 )
 from homeassistant.core import HomeAssistant, callback
 from homeassistant.helpers.device_registry import DeviceInfo
@@ -14,9 +14,7 @@ from homeassistant.helpers.entity_platform import AddEntitiesCallback
 from homeassistant.helpers.update_coordinator import CoordinatorEntity
 
 from . import HubConfigEntry, MyCoordinator
-from .api.helpers import resolve_battery_charging_current, resolve_battery_charging_voltage, resolve_battery_voltage, \
-    resolve_active_load_power, resolve_battery_discharge_current, resolve_output_priority, resolve_charge_priority, \
-    resolve_grid_in_power, resolve_grid_frequency
+from .api.helpers import *
 from .const import DOMAIN
 from .hub import InverterDevice
 
@@ -49,7 +47,8 @@ async def async_setup_entry(
         new_devices.append(GridInputPowerSensor(item, hub.coordinator))
         # pv sensors
         new_devices.append(PVPowerSensor(item, hub.coordinator))
-        new_devices.append(PVPowerTotalSensor(item, hub.coordinator))
+        new_devices.append(PVPowerTotalSensor(item, hub.coordinator))  # deprecated
+        new_devices.append(PVEnergySensor(item, hub.coordinator))
         new_devices.append(PVVoltageSensor(item, hub.coordinator))
         # battery sensors
         new_devices.append(BatteryVoltageSensor(item, hub.coordinator))
@@ -65,8 +64,10 @@ async def async_setup_entry(
         new_devices.append(InverterOutputVoltageSensor(item, hub.coordinator))
         new_devices.append(InverterOutputPowerSensor(item, hub.coordinator))
         new_devices.append(InverterOutEnergySensor(item, hub.coordinator))
+        new_devices.append(InverterInEnergySensor(item, hub.coordinator))
         new_devices.append(InverterDCTemperatureSensor(item, hub.coordinator))
         new_devices.append(InverterInvTemperatureSensor(item, hub.coordinator))
+        new_devices.append(InverterLoadSensor(item, hub.coordinator))
         # inverter config sensors
         new_devices.append(InverterChargePrioritySensor(item, hub.coordinator))
         new_devices.append(InverterConfigBTUtilityChargeSensor(item, hub.coordinator))
@@ -204,10 +205,9 @@ class PVPowerSensor(SensorBase):
     @callback
     def _handle_coordinator_update(self) -> None:
         """Handle updated data from the coordinator."""
-        # print('_handle_coordinator_update', self._inverter_device.roller_id, self.coordinator.data[self._inverter_device.roller_id])
-        self._attr_native_value = \
-            next((x for x in self.coordinator.data[self._inverter_device.inverter_id]['last_data']['pars']['pv_'] if
-                  x['id'] == 'pv_output_power'), {'val': 0})['val']
+        data = self.data
+        device_data = self._inverter_device.device_data
+        self._attr_native_value = resolve_pv_power(data, device_data)
         self.async_write_ha_state()
 
 
@@ -228,10 +228,9 @@ class PVVoltageSensor(SensorBase):
     @callback
     def _handle_coordinator_update(self) -> None:
         """Handle updated data from the coordinator."""
-        self._attr_native_value = \
-            next((x for x in self.coordinator.data[self._inverter_device.inverter_id]['last_data']['pars']['pv_'] if
-                  x['id'] == 'pv_input_voltage' or x['id'] == 'pv_voltage' or x['par'] == 'PV Voltage' or x[
-                      'par'] == 'PV Input Voltage'), {'val': None})['val']
+        data = self.data
+        device_data = self._inverter_device.device_data
+        self._attr_native_value = resolve_pv_voltage(data, device_data)
         self.async_write_ha_state()
 
 
@@ -252,10 +251,9 @@ class GridInputVoltageSensor(SensorBase):
     @callback
     def _handle_coordinator_update(self) -> None:
         """Handle updated data from the coordinator."""
-        self._attr_native_value = \
-            next((x for x in self.coordinator.data[self._inverter_device.inverter_id]['last_data']['pars']['gd_'] if
-                  x['id'] == 'gd_ac_input_voltage' or x['id'] == 'gd_grid_voltage' or x['par'] == 'Grid Voltage'),
-                 {'val': None})['val']
+        data = self.data
+        device_data = self._inverter_device.device_data
+        self._attr_native_value = resolve_grid_input_voltage(data, device_data)
         self.async_write_ha_state()
 
 
@@ -276,9 +274,9 @@ class InverterOutputVoltageSensor(SensorBase):
     @callback
     def _handle_coordinator_update(self) -> None:
         """Handle updated data from the coordinator."""
-        self._attr_native_value = \
-            next((x for x in self.coordinator.data[self._inverter_device.inverter_id]['last_data']['pars']['bc_'] if
-                  x['id'] == 'bc_output_voltage' or x['par'].lower() == 'Output Voltage'.lower()), {'val': None})['val']
+        data = self.data
+        device_data = self._inverter_device.device_data
+        self._attr_native_value = resolve_grid_output_voltage(data, device_data)
         self.async_write_ha_state()
 
 
@@ -302,6 +300,29 @@ class InverterOutputPowerSensor(SensorBase):
         data = self.data
         device_data = self._inverter_device.device_data
         self._attr_native_value = resolve_active_load_power(data, device_data)
+        self.async_write_ha_state()
+
+
+class InverterLoadSensor(SensorBase):
+    """Representation of a Sensor."""
+    device_class = SensorDeviceClass.POWER_FACTOR
+    _attr_unit_of_measurement = PERCENTAGE
+    _attr_native_unit_of_measurement = PERCENTAGE
+    _attr_suggested_display_precision = 0
+    _sensor_option_display_precision = 0
+
+    def __init__(self, inverter_device: InverterDevice, coordinator: MyCoordinator):
+        """Initialize the sensor."""
+        super().__init__(inverter_device, coordinator)
+        self._attr_unique_id = f"{self._inverter_device.inverter_id}_inverter_load"
+        self._attr_name = f"{self._inverter_device.name} Inverter Load"
+
+    @callback
+    def _handle_coordinator_update(self) -> None:
+        """Handle updated data from the coordinator."""
+        data = self.data
+        device_data = self._inverter_device.device_data
+        self._attr_native_value = resolve_active_load_percentage(data, device_data)
         self.async_write_ha_state()
 
 
@@ -370,7 +391,7 @@ class BatteryChargeSensor(SensorBase):
     def _handle_coordinator_update(self) -> None:
         """Handle updated data from the coordinator."""
 
-        data = self.coordinator.data[self._inverter_device.inverter_id]
+        data = self.data
         self._attr_native_value = resolve_battery_charging_current(data, self._inverter_device.device_data)
         self.async_write_ha_state()
 
@@ -392,9 +413,7 @@ class BatteryDischargeSensor(SensorBase):
     @callback
     def _handle_coordinator_update(self) -> None:
         """Handle updated data from the coordinator."""
-        self._attr_native_value = \
-            next((x for x in self.coordinator.data[self._inverter_device.inverter_id]['last_data']['pars']['bt_'] if
-                  x['id'] == 'bt_battery_discharge_current'), {'val': 0})['val']
+        self._attr_native_value = resolve_battery_discharge_current(self.data, self._inverter_device.device_data)
         self.async_write_ha_state()
 
 
@@ -415,12 +434,10 @@ class BatteryDischargePowerSensor(SensorBase):
     @callback
     def _handle_coordinator_update(self) -> None:
         """Handle updated data from the coordinator."""
-        data = self.coordinator.data[self._inverter_device.inverter_id]
+        data = self.data
         device_data = self._inverter_device.device_data
 
-        self._attr_native_value = \
-            resolve_battery_discharge_current(data, device_data) * \
-            resolve_battery_voltage(data, device_data)
+        self._attr_native_value = resolve_battery_discharge_power(data, device_data)
         self.async_write_ha_state()
 
 
@@ -441,11 +458,9 @@ class BatteryChargePowerSensor(SensorBase):
     @callback
     def _handle_coordinator_update(self) -> None:
         """Handle updated data from the coordinator."""
-        data = self.coordinator.data[self._inverter_device.inverter_id]
+        data = self.data
         device_data = self._inverter_device.device_data
-        self._attr_native_value = \
-            resolve_battery_charging_current(data, device_data) * \
-            resolve_battery_charging_voltage(data, device_data)
+        self._attr_native_value = resolve_battery_charging_power(data, device_data)
         self.async_write_ha_state()
 
 
@@ -466,7 +481,53 @@ class PVPowerTotalSensor(SensorBase):
     @callback
     def _handle_coordinator_update(self) -> None:
         """Handle updated data from the coordinator."""
-        self._attr_native_value = self.coordinator.data[self._inverter_device.inverter_id]['device']['energyTotal']
+        self._attr_native_value = self.data['device']['energyTotal']
+        self.async_write_ha_state()
+
+
+class PVEnergySensor(RestoreSensor, SensorBase):
+    _attr_device_class = SensorDeviceClass.ENERGY
+    _attr_state_class = SensorStateClass.TOTAL
+    _attr_suggested_display_precision = 0
+    _sensor_option_display_precision = 0
+    _state = 0
+    _attr_native_value = 0
+    _prev_value = None
+    _prev_value_timestamp = datetime.now()
+    _attr_last_reset = datetime.now()
+    _attr_unit_of_measurement = UnitOfEnergy.WATT_HOUR
+    _attr_native_unit_of_measurement = UnitOfEnergy.WATT_HOUR
+
+    def __init__(self, inverter_device: InverterDevice, coordinator: MyCoordinator):
+        """Initialize the sensor."""
+        super().__init__(inverter_device, coordinator)
+        self._attr_unique_id = f"{self._inverter_device.inverter_id}_pv_in_energy"
+        self._attr_name = f"{self._inverter_device.name} PV In Energy"
+
+    async def async_added_to_hass(self) -> None:
+        """Handle entity which will be added."""
+        await super().async_added_to_hass()
+
+        if (last_sensor_data := await self.async_get_last_extra_data()) is not None:
+            # print('last_sensor_data', last_sensor_data.as_dict())
+            self._state = (last_sensor_data.as_dict())['native_value']
+            self._attr_native_value = (last_sensor_data.as_dict())['native_value']
+
+    @callback
+    def _handle_coordinator_update(self) -> None:
+        """Handle updated data from the coordinator."""
+        now = datetime.now()
+        elapsed_seconds = int(now.timestamp() - self._prev_value_timestamp.timestamp())
+        data = self.data
+        device_data = self._inverter_device.device_data
+        current_value = resolve_pv_power(data, device_data)
+
+        if self._prev_value is None:
+            self._attr_native_value += (elapsed_seconds / 3600) * current_value
+        else:
+            self._attr_native_value += (elapsed_seconds / 3600) * (self._prev_value + current_value) / 2
+        self._prev_value = current_value
+        self._prev_value_timestamp = now
         self.async_write_ha_state()
 
 
@@ -487,7 +548,7 @@ class InverterStatusSensor(SensorBase):
         """Handle updated data from the coordinator."""
 
         self._attr_native_value = self.options[
-            self.coordinator.data[self._inverter_device.inverter_id]['device']['status']]
+            self.data['device']['status']]
         self.async_write_ha_state()
 
 
@@ -509,7 +570,7 @@ class InverterConfigBTUtilityChargeSensor(SensorBase):
         """Handle updated data from the coordinator."""
 
         self._attr_native_value = \
-            next((x for x in self.coordinator.data[self._inverter_device.inverter_id]['last_data']['pars']['bt_'] if
+            next((x for x in self.data['last_data']['pars']['bt_'] if
                   x['id'] == 'bt_utility_charge'), {'val': None})['val']
         self.async_write_ha_state()
 
@@ -532,7 +593,7 @@ class InverterConfigBTTotalChargeSensor(SensorBase):
         """Handle updated data from the coordinator."""
 
         self._attr_native_value = \
-            next((x for x in self.coordinator.data[self._inverter_device.inverter_id]['last_data']['pars']['bt_'] if
+            next((x for x in self.data['last_data']['pars']['bt_'] if
                   x['id'] == 'bt_total_charge_current'), {'val': None})['val']
         self.async_write_ha_state()
 
@@ -555,7 +616,7 @@ class InverterConfigBTCutoffSensor(SensorBase):
         """Handle updated data from the coordinator."""
 
         self._attr_native_value = \
-            next((x for x in self.coordinator.data[self._inverter_device.inverter_id]['last_data']['pars']['bt_'] if
+            next((x for x in self.data['last_data']['pars']['bt_'] if
                   x['id'] == 'bt_battery_cut_off_voltage'), {'val': None})['val']
         self.async_write_ha_state()
 
@@ -577,7 +638,7 @@ class InverterNominalOutPowerSensor(SensorBase):
     @callback
     def _handle_coordinator_update(self) -> None:
         """Handle updated data from the coordinator."""
-        data = self.coordinator.data[self._inverter_device.inverter_id]['last_data']['pars']
+        data = self.data['last_data']['pars']
         if 'sy_' not in data:
             self._attr_native_value = None
         else:
@@ -604,7 +665,7 @@ class InverterRatedBatteryVoltageSensor(SensorBase):
     @callback
     def _handle_coordinator_update(self) -> None:
         """Handle updated data from the coordinator."""
-        data = self.coordinator.data[self._inverter_device.inverter_id]['last_data']['pars']
+        data = self.data['last_data']['pars']
         if 'sy_' not in data:
             self._attr_native_value = None
         else:
@@ -631,7 +692,7 @@ class InverterComebackUtilityVoltageSensor(SensorBase):
     @callback
     def _handle_coordinator_update(self) -> None:
         """Handle updated data from the coordinator."""
-        data = self.coordinator.data[self._inverter_device.inverter_id]['last_data']['pars']
+        data = self.data['last_data']['pars']
         if 'bt_' not in data:
             self._attr_native_value = None
         else:
@@ -658,7 +719,7 @@ class InverterComebackBatteryVoltageSensor(SensorBase):
     @callback
     def _handle_coordinator_update(self) -> None:
         """Handle updated data from the coordinator."""
-        data = self.coordinator.data[self._inverter_device.inverter_id]['last_data']['pars']
+        data = self.data['last_data']['pars']
         if 'bt_' not in data:
             self._attr_native_value = None
         else:
@@ -671,7 +732,7 @@ class InverterComebackBatteryVoltageSensor(SensorBase):
 class InverterOutputPrioritySensor(SensorBase):
     """Representation of a Sensor."""
     device_class = SensorDeviceClass.ENUM
-    options = ['SBU', 'SOL', 'UTILITY']
+    options = ['Utility', 'Solar', 'SBU']
     _attr_entity_category = EntityCategory.DIAGNOSTIC
 
     def __init__(self, inverter_device: InverterDevice, coordinator: MyCoordinator):
@@ -683,10 +744,11 @@ class InverterOutputPrioritySensor(SensorBase):
     @callback
     def _handle_coordinator_update(self) -> None:
         """Handle updated data from the coordinator."""
-        data = self.coordinator.data[self._inverter_device.inverter_id]
+        data = self.data
         device_data = self._inverter_device.device_data
-        self._attr_native_value = resolve_output_priority(data, device_data)
-
+        value = resolve_output_priority(data, device_data)
+        if value in self.options:
+            self._attr_native_value = value
         self.async_write_ha_state()
 
 
@@ -706,7 +768,7 @@ class InverterChargePrioritySensor(SensorBase):
     def _handle_coordinator_update(self) -> None:
         """Handle updated data from the coordinator."""
 
-        data = self.coordinator.data[self._inverter_device.inverter_id]
+        data = self.data
         device_data = self._inverter_device.device_data
 
         self._attr_native_value = resolve_charge_priority(data, device_data)
@@ -717,8 +779,8 @@ class BatteryInEnergySensor(RestoreSensor, SensorBase):
     _attr_device_class = SensorDeviceClass.ENERGY
     _attr_state_class = SensorStateClass.TOTAL
     _attr_entity_category = EntityCategory.DIAGNOSTIC
-    _attr_suggested_display_precision = 3
-    _sensor_option_display_precision = 3
+    _attr_suggested_display_precision = 0
+    _sensor_option_display_precision = 0
     _state = 0
     _attr_native_value = 0
     _prev_value = None
@@ -747,12 +809,10 @@ class BatteryInEnergySensor(RestoreSensor, SensorBase):
         """Handle updated data from the coordinator."""
         now = datetime.now()
         elapsed_seconds = int(now.timestamp() - self._prev_value_timestamp.timestamp())
-        data = self.coordinator.data[self._inverter_device.inverter_id]
+        data = self.data
         device_data = self._inverter_device.device_data
-        battery_charging_current = resolve_battery_charging_current(data, device_data)
-        battery_charging_voltage = resolve_battery_charging_voltage(data, device_data)
 
-        current_value = battery_charging_current * battery_charging_voltage
+        current_value = resolve_battery_charging_power(data, device_data)
         if self._prev_value is None:
             self._attr_native_value += (elapsed_seconds / 3600) * current_value
         else:
@@ -766,8 +826,8 @@ class BatteryOutEnergySensor(RestoreSensor, SensorBase):
     _attr_device_class = SensorDeviceClass.ENERGY
     _attr_state_class = SensorStateClass.TOTAL
     _attr_entity_category = EntityCategory.DIAGNOSTIC
-    _attr_suggested_display_precision = 3
-    _sensor_option_display_precision = 3
+    _attr_suggested_display_precision = 0
+    _sensor_option_display_precision = 0
     _state = 0
     _attr_native_value = 0
     _prev_value = None
@@ -796,11 +856,8 @@ class BatteryOutEnergySensor(RestoreSensor, SensorBase):
         """Handle updated data from the coordinator."""
         now = datetime.now()
         elapsed_seconds = int(now.timestamp() - self._prev_value_timestamp.timestamp())
-        data = self.coordinator.data[self._inverter_device.inverter_id]
-        current_value = (float(
-            next((x for x in data['last_data']['pars']['bt_'] if
-                  x['id'] == 'bt_battery_discharge_current'), {'val': 0})['val']) *
-                         resolve_battery_voltage(data, self._inverter_device.device_data))
+        data = self.data
+        current_value = resolve_battery_discharge_power(data, self._inverter_device.device_data)
         if self._prev_value is None:
             self._attr_native_value += (elapsed_seconds / 3600) * current_value
         else:
@@ -814,8 +871,8 @@ class InverterOutEnergySensor(RestoreSensor, SensorBase):
     _attr_device_class = SensorDeviceClass.ENERGY
     _attr_state_class = SensorStateClass.TOTAL
     _attr_entity_category = EntityCategory.DIAGNOSTIC
-    _attr_suggested_display_precision = 3
-    _sensor_option_display_precision = 3
+    _attr_suggested_display_precision = 0
+    _sensor_option_display_precision = 0
     _state = 0
     _attr_native_value = 0
     _prev_value = None
@@ -839,14 +896,44 @@ class InverterOutEnergySensor(RestoreSensor, SensorBase):
             self._state = value
             self._attr_native_value = value
 
+
+class InverterInEnergySensor(RestoreSensor, SensorBase):
+    _attr_device_class = SensorDeviceClass.ENERGY
+    _attr_state_class = SensorStateClass.TOTAL
+    _attr_entity_category = EntityCategory.DIAGNOSTIC
+    _attr_suggested_display_precision = 0
+    _sensor_option_display_precision = 0
+    _state = 0
+    _attr_native_value = 0
+    _prev_value = None
+    _prev_value_timestamp = datetime.now()
+    _attr_last_reset = datetime.now()
+    _attr_unit_of_measurement = UnitOfEnergy.WATT_HOUR
+    _attr_native_unit_of_measurement = UnitOfEnergy.WATT_HOUR
+
+    def __init__(self, inverter_device: InverterDevice, coordinator: MyCoordinator):
+        """Initialize the sensor."""
+        super().__init__(inverter_device, coordinator)
+        self._attr_unique_id = f"{self._inverter_device.inverter_id}_inverter_in_energy"
+        self._attr_name = f"{self._inverter_device.name} Inverter In Energy"
+
+    async def async_added_to_hass(self) -> None:
+        """Handle entity which will be added."""
+        await super().async_added_to_hass()
+
+        if (last_sensor_data := await self.async_get_last_extra_data()) is not None:
+            value = (last_sensor_data.as_dict())['native_value']
+            self._state = value
+            self._attr_native_value = value
+
     @callback
     def _handle_coordinator_update(self) -> None:
         """Handle updated data from the coordinator."""
         now = datetime.now()
         elapsed_seconds = int(now.timestamp() - self._prev_value_timestamp.timestamp())
-        data = self.coordinator.data[self._inverter_device.inverter_id]
+        data = self.data
         device_data = self._inverter_device.device_data
-        current_val = resolve_active_load_power(data, device_data)
+        current_val = resolve_grid_in_power(data, device_data)
         if self._prev_value is None:
             self._attr_native_value += (elapsed_seconds / 3600) * current_val
         else:
@@ -874,12 +961,9 @@ class InverterDCTemperatureSensor(SensorBase):
     @callback
     def _handle_coordinator_update(self) -> None:
         """Handle updated data from the coordinator."""
-        data = self.coordinator.data[self._inverter_device.inverter_id]['last_data']['pars']
-        if 'sy_' not in data:
-            self._attr_native_value = None
-        else:
-            self._attr_native_value = \
-                next((x for x in data['sy_'] if x['par'] == 'DC Module Termperature'), {'val': None})['val']
+        data = self.data
+        device_data = self._inverter_device.device_data
+        self._attr_native_value = resolve_dc_module_temperature(data, device_data)
         self.async_write_ha_state()
 
 
@@ -901,88 +985,7 @@ class InverterInvTemperatureSensor(SensorBase):
     @callback
     def _handle_coordinator_update(self) -> None:
         """Handle updated data from the coordinator."""
-        data = self.coordinator.data[self._inverter_device.inverter_id]['last_data']['pars']
-        if 'sy_' not in data:
-            self._attr_native_value = None
-        else:
-            self._attr_native_value = \
-                next((x for x in data['sy_'] if x['par'] == 'INV Module Termperature'), {'val': None})['val']
+        data = self.data
+        device_data = self._inverter_device.device_data
+        self._attr_native_value = resolve_inv_temperature(data, device_data)
         self.async_write_ha_state()
-
-# class BTSensor(SensorBase):
-#     """Representation of a Sensor."""
-#
-#     # # The class of this device. Note the value should come from the homeassistant.const
-#     # # module. More information on the available devices classes can be seen here:
-#     # # https://developers.home-assistant.io/docs/core/entity/sensor
-#     # device_class = SensorDeviceClass.VOLTAGE
-#
-#     def __init__(self, inverter_device: Roller, coordinator: MyCoordinator, pars):
-#         """Initialize the sensor."""
-#         super().__init__(inverter_device, coordinator)
-#
-#         # As per the sensor, this must be a unique value within this domain. This is done
-#         # by using the device ID, and appending "_battery"
-#         # self._attr_native_value = None
-#         self._attr_unique_id = f"{self._inverter_device.roller_id}_{pars['id']}"
-#         # self.device_class = SensorDeviceClass.VOLTAGE
-#         self._attr_device_class = SensorDeviceClass.VOLTAGE
-#         if pars['unit'] == 'A':
-#             self._attr_device_class = SensorDeviceClass.CURRENT
-#         if pars['unit'] == '%':
-#             self._attr_device_class = SensorDeviceClass.BATTERY
-#         if pars['unit'] == 'min':
-#             self._attr_device_class = SensorDeviceClass.DURATION
-#         if pars['unit'] == 'day':
-#             self._attr_device_class = SensorDeviceClass.DURATION
-#
-#         self._attr_native_unit_of_measurement = pars['unit']
-#         self._attr_unit_of_measurement = pars['unit']
-#         # The name of the entity
-#         self._attr_name = f"{self._inverter_device.name} {pars['par']}"
-#         self._state = pars['val']
-#         self._attr_native_value = pars['val']
-#
-#     @callback
-#     def _handle_coordinator_update(self) -> None:
-#         """Handle updated data from the coordinator."""
-#         # print('_handle_coordinator_update', self._inverter_device.roller_id, self.coordinator.data[self._inverter_device.roller_id])
-#         self._attr_native_value = \
-#             next((x for x in self.coordinator.data[self._inverter_device.roller_id]['last_data']['pars']['pv_'] if
-#                   x['id'] == 'pv_output_power'))['val']
-#         self.async_write_ha_state()
-
-# class PVPowerSensor(CoordinatorEntity, SensorEntity):
-#     """Representation of a Sensor."""
-#     device_class = SensorDeviceClass.VOLTAGE
-#
-#     # The unit of measurement for this entity. As it's a DEVICE_CLASS_BATTERY, this
-#     # should be PERCENTAGE. A number of units are supported by HA, for some
-#     # examples, see:
-#     # https://developers.home-assistant.io/docs/core/entity/sensor#available-device-classes
-#     _attr_unit_of_measurement = 'V'
-#
-#
-#     def __init__(self, inverter_device: Roller, coordinator):
-#         """Pass coordinator to CoordinatorEntity."""
-#         super().__init__(coordinator)
-#         self._inverter_device = inverter_device
-#
-#     @callback
-#     def _handle_coordinator_update(self) -> None:
-#         """Handle updated data from the coordinator."""
-#         print('_handle_coordinator_update')
-#         self._attr_native_value = '124'
-#         self.async_write_ha_state()
-#
-#     @property
-#     def device_info(self) -> DeviceInfo:
-#         """Information about this entity/device."""
-#         return {
-#             "identifiers": {(DOMAIN, self._inverter_device.roller_id)},
-#             # If desired, the name for the device could be different to the entity
-#             "name": self._inverter_device.name,
-#             "sw_version": self._inverter_device.firmware_version,
-#             "model": self._inverter_device.device_data['sn'],
-#             "serial_number": self._inverter_device.device_data['pn'],
-#         }
