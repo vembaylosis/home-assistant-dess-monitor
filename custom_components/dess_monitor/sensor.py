@@ -516,14 +516,15 @@ class PVEnergySensor(RestoreSensor, SensorBase):
     @callback
     def _handle_coordinator_update(self) -> None:
         """Handle updated data from the coordinator."""
-        now = datetime.now()
-        elapsed_seconds = int(now.timestamp() - self._prev_value_timestamp.timestamp())
         data = self.data
         device_data = self._inverter_device.device_data
+
+        now = datetime.now()
+        elapsed_seconds = int(now.timestamp() - self._prev_value_timestamp.timestamp())
         current_value = resolve_pv_power(data, device_data)
 
         if self._prev_value is None:
-            self._attr_native_value += (elapsed_seconds / 3600) * current_value
+            self._attr_native_value += (elapsed_seconds / 3600) * current_value / 2
         else:
             self._attr_native_value += (elapsed_seconds / 3600) * (self._prev_value + current_value) / 2
         self._prev_value = current_value
@@ -896,6 +897,22 @@ class InverterOutEnergySensor(RestoreSensor, SensorBase):
             self._state = value
             self._attr_native_value = value
 
+    @callback
+    def _handle_coordinator_update(self) -> None:
+        """Handle updated data from the coordinator."""
+        now = datetime.now()
+        elapsed_seconds = int(now.timestamp() - self._prev_value_timestamp.timestamp())
+        data = self.data
+        device_data = self._inverter_device.device_data
+        current_val = resolve_active_load_power(data, device_data)
+        if self._prev_value is None:
+            self._attr_native_value += (elapsed_seconds / 3600) * (current_val / 2)
+        else:
+            self._attr_native_value += (elapsed_seconds / 3600) * (self._prev_value + current_val) / 2
+        self._prev_value = current_val
+        self._prev_value_timestamp = now
+        self.async_write_ha_state()
+
 
 class InverterInEnergySensor(RestoreSensor, SensorBase):
     _attr_device_class = SensorDeviceClass.ENERGY
@@ -935,7 +952,7 @@ class InverterInEnergySensor(RestoreSensor, SensorBase):
         device_data = self._inverter_device.device_data
         current_val = resolve_grid_in_power(data, device_data)
         if self._prev_value is None:
-            self._attr_native_value += (elapsed_seconds / 3600) * current_val
+            self._attr_native_value += (elapsed_seconds / 3600) * (current_val / 2)
         else:
             self._attr_native_value += (elapsed_seconds / 3600) * (self._prev_value + current_val) / 2
         self._prev_value = current_val
