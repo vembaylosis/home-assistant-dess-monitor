@@ -134,7 +134,7 @@ class SensorBase(CoordinatorEntity, SensorEntity):
 
 class MyEnergySensor(RestoreSensor, SensorBase):
     _attr_device_class = SensorDeviceClass.ENERGY
-    _attr_state_class = SensorStateClass.TOTAL
+    _attr_state_class = SensorStateClass.TOTAL_INCREASING
     _attr_entity_category = EntityCategory.DIAGNOSTIC
     _attr_suggested_display_precision = 0
     _sensor_option_display_precision = 0
