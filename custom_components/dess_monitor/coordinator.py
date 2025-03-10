@@ -8,8 +8,8 @@ from homeassistant.helpers.update_coordinator import (
     DataUpdateCoordinator,
 )
 
-from .api import get_device_last_data, get_devices, auth_user, get_device_energy_flow, get_device_pars
-from .api.helpers import get_inverter_output_priority
+from .api import *
+from .api.helpers import *
 
 _LOGGER = logging.getLogger(__name__)
 
@@ -52,6 +52,14 @@ class MyCoordinator(DataUpdateCoordinator):
 
         self.devices = await self.get_active_devices()
         print('coordinator setup devices count: ', len(self.devices))
+
+        # token = self.auth['token']
+        # secret = self.auth['secret']
+        # query_device_ctrl_fields = [get_device_ctrl_fields(token, secret, device) for device in self.devices]
+        # query_device_ctrl_fields_results = await asyncio.gather(*query_device_ctrl_fields)
+        # for i, device_field_data in enumerate(query_device_ctrl_fields_results):
+        #     for k, field_data in device_field_data['field']:
+        #         async_add_entities(InverterDynamicSettingSelect())
         # await self.async_refresh()
         # await self._async_update_data()
 
@@ -84,7 +92,7 @@ class MyCoordinator(DataUpdateCoordinator):
         try:
             # Note: asyncio.TimeoutError and aiohttp.ClientError are already
             # handled by the data update coordinator.
-            async with async_timeout.timeout(60):
+            async with async_timeout.timeout(120):
                 # Grab active context variables to limit data required to be fetched from API
                 # Note: using context is not required if there is no need or ability to limit
                 # data retrieved from API.
@@ -107,6 +115,10 @@ class MyCoordinator(DataUpdateCoordinator):
                 query_device_pars_es = [get_device_pars(token, secret, device) for device in self.devices]
                 query_device_pars_es_results = await asyncio.gather(*query_device_pars_es)
 
+                query_device_ctrl_fields = [get_device_ctrl_fields(token, secret, device) for device in
+                                            self.devices]
+                query_device_ctrl_fields_results = await asyncio.gather(*query_device_ctrl_fields)
+
                 query_device_output_priority = [get_inverter_output_priority(token, secret, device) for device in
                                                 self.devices]
                 query_device_output_priority_results = await asyncio.gather(*query_device_output_priority)
@@ -118,6 +130,7 @@ class MyCoordinator(DataUpdateCoordinator):
                         'energy_flow': web_query_device_energy_flow_es_results[i],
                         'pars': query_device_pars_es_results[i],
                         'device': self.devices[i],
+                        'ctrl_fields': query_device_ctrl_fields_results[i]['field'],
                         'device_extra': {
                             'output_priority': query_device_output_priority_results[i]
                         }

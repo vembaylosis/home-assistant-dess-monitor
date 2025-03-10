@@ -27,7 +27,8 @@ class Hub:
         devices = self.coordinator.devices
         for device in devices:
             # print(device)
-            self.items.append(InverterDevice(f"{device['pn']}", f"{device['devalias']}", device, self))
+            inverter_device = InverterDevice(f"{device['pn']}", f"{device['devalias']}", device, self)
+            self.items.append(inverter_device)
 
 
 class InverterDevice:

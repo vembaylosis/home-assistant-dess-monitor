@@ -9,7 +9,7 @@ from .coordinator import MyCoordinator
 
 # List of platforms to support. There should be a matching .py file for each,
 # eg <cover.py> and <sensor.py>
-PLATFORMS = [Platform.SENSOR, Platform.SELECT]
+PLATFORMS = [Platform.SENSOR, Platform.SELECT, Platform.NUMBER]
 
 type HubConfigEntry = ConfigEntry[hub.Hub]
 

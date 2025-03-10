@@ -141,8 +141,7 @@ def resolve_output_priority(data, device_data):
     }
     match device_data['devcode']:
         case 2341:
-            val = next((x for x in data['last_data']['pars']['bc_'] if
-                        x['id'] == 'bc_output_source_priority'), {'val': None})['val']
+            val = next((x for x in data['last_data']['pars']['bc_'] if x['id'] == 'bc_output_source_priority'), {'val': None})['val']
 
         case 2376:
             if 'sy_' not in data['last_data']['pars']:
@@ -273,6 +272,15 @@ async def set_inverter_output_priority(token: str, secret: str, device_data, val
             param_value = map_param_value[value]
 
             param_id = 'bse_output_source_priority'
+        case 2376:
+            map_param_value = {
+                'Utility': '0',
+                'Solar': '1',
+                'SBU': '2'
+            }
+            param_value = map_param_value[value]
+
+            param_id = 'bse_eybond_ctrl_49'
 
         case _:
             return

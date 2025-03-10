@@ -1,6 +1,8 @@
+import asyncio
 import hashlib
 import time
 import urllib
+from datetime import datetime
 from enum import StrEnum
 
 import aiohttp
@@ -11,7 +13,18 @@ class DeviceParameterName(StrEnum):
     SOUTH = 'south'
 
 
-async def auth_user(username, password_hash):
+headers = {
+    'Host': 'web.dessmonitor.com',
+    'Origin': 'web.dessmonitor.com',
+    'Referer': 'https://www.dessmonitor.com/',
+    'DNT': '1',
+    'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/133.0.0.0 Safari/537.36',
+}
+
+api_semaphore = asyncio.Semaphore(3)
+
+
+async def auth_user(username: str, password_hash: str):
     async with aiohttp.ClientSession() as session:
         # print('auth_user', username)
         params = {
@@ -29,7 +42,7 @@ async def auth_user(username, password_hash):
             **params,
         }
         url = f'https://web.dessmonitor.com/public/?{urllib.parse.urlencode(payload, doseq=False, safe="@")}'
-        response = (await (await session.get(url)).json())
+        response = (await (await session.get(url, headers=headers)).json())
         if response['err'] != 0:
             print(f'Error {response["err"]} while authenticating user: {response["desc"]}')
             raise Exception(
@@ -60,34 +73,42 @@ def generate_params_signature(token, secret, params):
     }
 
 
-async def create_auth_api_request(token, secret, params):
+async def create_auth_api_request(token, secret, params, raise_error=True):
     async with aiohttp.ClientSession() as session:
-        payload = generate_params_signature(token, secret, params)
-        # print(payload)
-        params_path = urllib.parse.urlencode(payload, doseq=False, safe="@")
-        url = f'https://web.dessmonitor.com/public/?{params_path}'
-        json = (await (await session.get(url)).json())
-        if json['err'] == 0:
-            return json['dat']
-        else:
-            raise Exception(
-                f'Error {json["err"]} while creating auth api request: {json["desc"]}'
-            )
+        async with api_semaphore:
+            payload = generate_params_signature(token, secret, params)
+            # print(payload)
+            params_path = urllib.parse.urlencode(payload, doseq=False, safe="@")
+            url = f'https://web.dessmonitor.com/public/?{params_path}'
+            json = (await (await session.get(url, headers=headers)).json())
+            if json['err'] == 0:
+                return json['dat']
+            else:
+                if raise_error:
+                    raise Exception(
+                        f'Error {json["err"]} while creating auth api request: {json["desc"]}'
+                    )
+                else:
+                    return json
 
 
-async def create_auth_api_remote_request(token, secret, params):
+async def create_auth_api_remote_request(token, secret, params, raise_error=True):
     async with aiohttp.ClientSession() as session:
-        payload = generate_params_signature(token, secret, params)
-        # print(payload)
-        params_path = urllib.parse.urlencode(payload, doseq=False, safe="@")
-        url = f'https://web.dessmonitor.com/remote/?{params_path}'
-        json = (await (await session.get(url)).json())
-        if json['err'] == 0:
-            return json['dat']
-        else:
-            raise Exception(
-                f'Error {json["err"]} while creating auth api request: {json["desc"]}'
-            )
+        async with api_semaphore:
+            payload = generate_params_signature(token, secret, params)
+            # print(payload)
+            params_path = urllib.parse.urlencode(payload, doseq=False, safe="@")
+            url = f'https://web.dessmonitor.com/remote/?{params_path}'
+            json = (await (await session.get(url, headers=headers)).json())
+            if json['err'] == 0:
+                return json['dat']
+            else:
+                if raise_error:
+                    raise Exception(
+                        f'Error {json["err"]} while creating auth api request: {json["desc"]}'
+                    )
+                else:
+                    return json
 
 
 async def get_devices(token, secret, params=None):
@@ -160,8 +181,10 @@ async def get_device_ctrl_value(token: str, secret: str, device_identity, param_
         'id': param_id,
         **extract_device_identity(device_identity),
     }
-    response = await create_auth_api_request(token, secret, payload)
-
+    start = int(datetime.now().timestamp() * 1000)
+    print(payload)
+    response = await create_auth_api_request(token, secret, payload, False)
+    print('get_device_ctrl_value time', int(datetime.now().timestamp() * 1000) - start)
     return response
 
 

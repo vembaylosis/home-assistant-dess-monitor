@@ -132,6 +132,38 @@ class SensorBase(CoordinatorEntity, SensorEntity):
     #     # The opposite of async_added_to_hass. Remove any registered call backs here.
     #     self._inverter_device.remove_callback(self.async_write_ha_state)
 
+class MyEnergySensor(RestoreSensor, SensorBase):
+    _attr_device_class = SensorDeviceClass.ENERGY
+    _attr_state_class = SensorStateClass.TOTAL
+    _attr_entity_category = EntityCategory.DIAGNOSTIC
+    _attr_suggested_display_precision = 0
+    _sensor_option_display_precision = 0
+    _prev_value = None
+    _prev_value_timestamp = datetime.now()
+    _attr_last_reset = datetime.now()
+    _attr_unit_of_measurement = UnitOfEnergy.WATT_HOUR
+    _attr_native_unit_of_measurement = UnitOfEnergy.WATT_HOUR
+    _is_restored_value = False
+
+    def __init__(self, inverter_device: InverterDevice, coordinator: MyCoordinator):
+        """Initialize the sensor."""
+        super().__init__(inverter_device, coordinator)
+
+    async def async_added_to_hass(self) -> None:
+        """Handle entity which will be added."""
+
+        if (last_sensor_data := await self.async_get_last_extra_data()) is not None:
+            # print('last_sensor_data', last_sensor_data.as_dict())
+            self._attr_native_value = (last_sensor_data.as_dict())['native_value']
+        else:
+            self._attr_native_value = 0
+        self._is_restored_value = True
+        await super().async_added_to_hass()
+
+    @property
+    def available(self) -> bool:
+        """Return True if inverter_device and hub is available."""
+        return self._inverter_device.online and self._inverter_device.hub.online and self._is_restored_value
 
 class BatteryVoltageSensor(SensorBase):
     """Representation of a Sensor."""
@@ -485,33 +517,12 @@ class PVPowerTotalSensor(SensorBase):
         self.async_write_ha_state()
 
 
-class PVEnergySensor(RestoreSensor, SensorBase):
-    _attr_device_class = SensorDeviceClass.ENERGY
-    _attr_state_class = SensorStateClass.TOTAL
-    _attr_suggested_display_precision = 0
-    _sensor_option_display_precision = 0
-    _state = 0
-    _attr_native_value = 0
-    _prev_value = None
-    _prev_value_timestamp = datetime.now()
-    _attr_last_reset = datetime.now()
-    _attr_unit_of_measurement = UnitOfEnergy.WATT_HOUR
-    _attr_native_unit_of_measurement = UnitOfEnergy.WATT_HOUR
-
+class PVEnergySensor(MyEnergySensor):
     def __init__(self, inverter_device: InverterDevice, coordinator: MyCoordinator):
         """Initialize the sensor."""
         super().__init__(inverter_device, coordinator)
         self._attr_unique_id = f"{self._inverter_device.inverter_id}_pv_in_energy"
         self._attr_name = f"{self._inverter_device.name} PV In Energy"
-
-    async def async_added_to_hass(self) -> None:
-        """Handle entity which will be added."""
-        await super().async_added_to_hass()
-
-        if (last_sensor_data := await self.async_get_last_extra_data()) is not None:
-            # print('last_sensor_data', last_sensor_data.as_dict())
-            self._state = (last_sensor_data.as_dict())['native_value']
-            self._attr_native_value = (last_sensor_data.as_dict())['native_value']
 
     @callback
     def _handle_coordinator_update(self) -> None:
@@ -523,9 +534,7 @@ class PVEnergySensor(RestoreSensor, SensorBase):
         elapsed_seconds = int(now.timestamp() - self._prev_value_timestamp.timestamp())
         current_value = resolve_pv_power(data, device_data)
 
-        if self._prev_value is None:
-            self._attr_native_value += (elapsed_seconds / 3600) * current_value / 2
-        else:
+        if self._prev_value is not None:
             self._attr_native_value += (elapsed_seconds / 3600) * (self._prev_value + current_value) / 2
         self._prev_value = current_value
         self._prev_value_timestamp = now
@@ -776,34 +785,13 @@ class InverterChargePrioritySensor(SensorBase):
         self.async_write_ha_state()
 
 
-class BatteryInEnergySensor(RestoreSensor, SensorBase):
-    _attr_device_class = SensorDeviceClass.ENERGY
-    _attr_state_class = SensorStateClass.TOTAL
-    _attr_entity_category = EntityCategory.DIAGNOSTIC
-    _attr_suggested_display_precision = 0
-    _sensor_option_display_precision = 0
-    _state = 0
-    _attr_native_value = 0
-    _prev_value = None
-    _prev_value_timestamp = datetime.now()
-    _attr_last_reset = datetime.now()
-    _attr_unit_of_measurement = UnitOfEnergy.WATT_HOUR
-    _attr_native_unit_of_measurement = UnitOfEnergy.WATT_HOUR
+class BatteryInEnergySensor(MyEnergySensor):
 
     def __init__(self, inverter_device: InverterDevice, coordinator: MyCoordinator):
         """Initialize the sensor."""
         super().__init__(inverter_device, coordinator)
         self._attr_unique_id = f"{self._inverter_device.inverter_id}_battery_in_energy"
         self._attr_name = f"{self._inverter_device.name} Battery In Energy"
-
-    async def async_added_to_hass(self) -> None:
-        """Handle entity which will be added."""
-        await super().async_added_to_hass()
-
-        if (last_sensor_data := await self.async_get_last_extra_data()) is not None:
-            # print('last_sensor_data', last_sensor_data.as_dict())
-            self._state = (last_sensor_data.as_dict())['native_value']
-            self._attr_native_value = (last_sensor_data.as_dict())['native_value']
 
     @callback
     def _handle_coordinator_update(self) -> None:
@@ -814,43 +802,20 @@ class BatteryInEnergySensor(RestoreSensor, SensorBase):
         device_data = self._inverter_device.device_data
 
         current_value = resolve_battery_charging_power(data, device_data)
-        if self._prev_value is None:
-            self._attr_native_value += (elapsed_seconds / 3600) * current_value
-        else:
+        if self._prev_value is not None:
             self._attr_native_value += (elapsed_seconds / 3600) * (self._prev_value + current_value) / 2
         self._prev_value = current_value
         self._prev_value_timestamp = now
         self.async_write_ha_state()
 
 
-class BatteryOutEnergySensor(RestoreSensor, SensorBase):
-    _attr_device_class = SensorDeviceClass.ENERGY
-    _attr_state_class = SensorStateClass.TOTAL
-    _attr_entity_category = EntityCategory.DIAGNOSTIC
-    _attr_suggested_display_precision = 0
-    _sensor_option_display_precision = 0
-    _state = 0
-    _attr_native_value = 0
-    _prev_value = None
-    _prev_value_timestamp = datetime.now()
-    _attr_last_reset = datetime.now()
-    _attr_unit_of_measurement = UnitOfEnergy.WATT_HOUR
-    _attr_native_unit_of_measurement = UnitOfEnergy.WATT_HOUR
+class BatteryOutEnergySensor(MyEnergySensor):
 
     def __init__(self, inverter_device: InverterDevice, coordinator: MyCoordinator):
         """Initialize the sensor."""
         super().__init__(inverter_device, coordinator)
         self._attr_unique_id = f"{self._inverter_device.inverter_id}_battery_out_energy"
         self._attr_name = f"{self._inverter_device.name} Battery Out Energy"
-
-    async def async_added_to_hass(self) -> None:
-        """Handle entity which will be added."""
-        await super().async_added_to_hass()
-
-        if (last_sensor_data := await self.async_get_last_extra_data()) is not None:
-            value = (last_sensor_data.as_dict())['native_value']
-            self._state = value
-            self._attr_native_value = value
 
     @callback
     def _handle_coordinator_update(self) -> None:
@@ -859,43 +824,20 @@ class BatteryOutEnergySensor(RestoreSensor, SensorBase):
         elapsed_seconds = int(now.timestamp() - self._prev_value_timestamp.timestamp())
         data = self.data
         current_value = resolve_battery_discharge_power(data, self._inverter_device.device_data)
-        if self._prev_value is None:
-            self._attr_native_value += (elapsed_seconds / 3600) * current_value
-        else:
+        if self._prev_value is not None:
             self._attr_native_value += (elapsed_seconds / 3600) * (self._prev_value + current_value) / 2
         self._prev_value = current_value
         self._prev_value_timestamp = now
         self.async_write_ha_state()
 
 
-class InverterOutEnergySensor(RestoreSensor, SensorBase):
-    _attr_device_class = SensorDeviceClass.ENERGY
-    _attr_state_class = SensorStateClass.TOTAL
-    _attr_entity_category = EntityCategory.DIAGNOSTIC
-    _attr_suggested_display_precision = 0
-    _sensor_option_display_precision = 0
-    _state = 0
-    _attr_native_value = 0
-    _prev_value = None
-    _prev_value_timestamp = datetime.now()
-    _attr_last_reset = datetime.now()
-    _attr_unit_of_measurement = UnitOfEnergy.WATT_HOUR
-    _attr_native_unit_of_measurement = UnitOfEnergy.WATT_HOUR
+class InverterOutEnergySensor(MyEnergySensor):
 
     def __init__(self, inverter_device: InverterDevice, coordinator: MyCoordinator):
         """Initialize the sensor."""
         super().__init__(inverter_device, coordinator)
         self._attr_unique_id = f"{self._inverter_device.inverter_id}_inverter_out_energy"
         self._attr_name = f"{self._inverter_device.name} Inverter Out Energy"
-
-    async def async_added_to_hass(self) -> None:
-        """Handle entity which will be added."""
-        await super().async_added_to_hass()
-
-        if (last_sensor_data := await self.async_get_last_extra_data()) is not None:
-            value = (last_sensor_data.as_dict())['native_value']
-            self._state = value
-            self._attr_native_value = value
 
     @callback
     def _handle_coordinator_update(self) -> None:
@@ -905,43 +847,20 @@ class InverterOutEnergySensor(RestoreSensor, SensorBase):
         data = self.data
         device_data = self._inverter_device.device_data
         current_val = resolve_active_load_power(data, device_data)
-        if self._prev_value is None:
-            self._attr_native_value += (elapsed_seconds / 3600) * (current_val / 2)
-        else:
+        if self._prev_value is not None:
             self._attr_native_value += (elapsed_seconds / 3600) * (self._prev_value + current_val) / 2
         self._prev_value = current_val
         self._prev_value_timestamp = now
         self.async_write_ha_state()
 
 
-class InverterInEnergySensor(RestoreSensor, SensorBase):
-    _attr_device_class = SensorDeviceClass.ENERGY
-    _attr_state_class = SensorStateClass.TOTAL
-    _attr_entity_category = EntityCategory.DIAGNOSTIC
-    _attr_suggested_display_precision = 0
-    _sensor_option_display_precision = 0
-    _state = 0
-    _attr_native_value = 0
-    _prev_value = None
-    _prev_value_timestamp = datetime.now()
-    _attr_last_reset = datetime.now()
-    _attr_unit_of_measurement = UnitOfEnergy.WATT_HOUR
-    _attr_native_unit_of_measurement = UnitOfEnergy.WATT_HOUR
+class InverterInEnergySensor(MyEnergySensor):
 
     def __init__(self, inverter_device: InverterDevice, coordinator: MyCoordinator):
         """Initialize the sensor."""
         super().__init__(inverter_device, coordinator)
         self._attr_unique_id = f"{self._inverter_device.inverter_id}_inverter_in_energy"
         self._attr_name = f"{self._inverter_device.name} Inverter In Energy"
-
-    async def async_added_to_hass(self) -> None:
-        """Handle entity which will be added."""
-        await super().async_added_to_hass()
-
-        if (last_sensor_data := await self.async_get_last_extra_data()) is not None:
-            value = (last_sensor_data.as_dict())['native_value']
-            self._state = value
-            self._attr_native_value = value
 
     @callback
     def _handle_coordinator_update(self) -> None:
@@ -951,9 +870,7 @@ class InverterInEnergySensor(RestoreSensor, SensorBase):
         data = self.data
         device_data = self._inverter_device.device_data
         current_val = resolve_grid_in_power(data, device_data)
-        if self._prev_value is None:
-            self._attr_native_value += (elapsed_seconds / 3600) * (current_val / 2)
-        else:
+        if self._prev_value is not None:
             self._attr_native_value += (elapsed_seconds / 3600) * (self._prev_value + current_val) / 2
         self._prev_value = current_val
         self._prev_value_timestamp = now
