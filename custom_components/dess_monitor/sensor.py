@@ -140,7 +140,6 @@ class MyEnergySensor(RestoreSensor, SensorBase):
     _sensor_option_display_precision = 0
     _prev_value = None
     _prev_value_timestamp = datetime.now()
-    _attr_last_reset = datetime.now()
     _attr_unit_of_measurement = UnitOfEnergy.WATT_HOUR
     _attr_native_unit_of_measurement = UnitOfEnergy.WATT_HOUR
     _is_restored_value = False
