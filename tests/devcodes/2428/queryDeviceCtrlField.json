@@ -1,0 +1,268 @@
+{
+    "err": 0,
+    "desc": "ERR_NONE",
+    "dat": {
+        "field": [
+            {
+                "id": "bse_output_source_priority",
+                "name": "Output source priority rating",
+                "item": [
+                    {
+                        "key": "12336",
+                        "val": "Utility first"
+                    },
+                    {
+                        "key": "12337",
+                        "val": "Solar first"
+                    },
+                    {
+                        "key": "12338",
+                        "val": "SBU first"
+                    }
+                ]
+            },
+            {
+                "id": "grd_ac_input_range",
+                "name": "AC Input Range",
+                "item": [
+                    {
+                        "key": "12336",
+                        "val": "APL"
+                    },
+                    {
+                        "key": "12337",
+                        "val": "UPS"
+                    }
+                ]
+            },
+            {
+                "id": "grd_output_frequency",
+                "name": "Output Frequency",
+                "unit": "Hz",
+                "item": [
+                    {
+                        "key": "13616",
+                        "val": "50.0"
+                    },
+                    {
+                        "key": "13872",
+                        "val": "60.0"
+                    }
+                ]
+            },
+            {
+                "id": "bat_battery_type",
+                "name": "Battery Type",
+                "item": [
+                    {
+                        "key": "12336",
+                        "val": "AGM"
+                    },
+                    {
+                        "key": "12337",
+                        "val": "FLD"
+                    },
+                    {
+                        "key": "12338",
+                        "val": "USER"
+                    }
+                ]
+            },
+            {
+                "id": "bat_battery_cut_off_voltage",
+                "name": "Battery Cut-off Voltage",
+                "unit": "V",
+                "hint": "21.0~24.0V 42.0~48.0V"
+            },
+            {
+                "id": "bat_charging_bulk_voltage",
+                "name": "Bulk Charging Voltage",
+                "unit": "V",
+                "hint": "25.0~31.5V 48.0~61.0V"
+            },
+            {
+                "id": "bat_charging_float_voltage",
+                "name": "Float Charging Voltage",
+                "unit": "V",
+                "hint": "25.0~31.5V 48.0~61.0V"
+            },
+            {
+                "id": "bat_max_charging_current",
+                "name": "Max. Charging Current",
+                "unit": "A",
+                "item": [
+                    {
+                        "key": "010",
+                        "val": "10.0"
+                    },
+                    {
+                        "key": "020",
+                        "val": "20.0"
+                    },
+                    {
+                        "key": "030",
+                        "val": "30.0"
+                    },
+                    {
+                        "key": "040",
+                        "val": "40.0"
+                    },
+                    {
+                        "key": "050",
+                        "val": "50.0"
+                    },
+                    {
+                        "key": "060",
+                        "val": "60.0"
+                    },
+                    {
+                        "key": "070",
+                        "val": "70.0"
+                    },
+                    {
+                        "key": "080",
+                        "val": "80.0"
+                    },
+                    {
+                        "key": "090",
+                        "val": "90.0"
+                    },
+                    {
+                        "key": "100",
+                        "val": "100.0"
+                    },
+                    {
+                        "key": "110",
+                        "val": "110.0"
+                    },
+                    {
+                        "key": "120",
+                        "val": "120.0"
+                    }
+                ]
+            },
+            {
+                "id": "bat_mac_charging_current",
+                "name": "PV+AC max charging current (More than 100A)",
+                "unit": "A",
+                "item": [
+                    {
+                        "key": "010",
+                        "val": "10.0"
+                    },
+                    {
+                        "key": "020",
+                        "val": "20.0"
+                    },
+                    {
+                        "key": "030",
+                        "val": "30.0"
+                    },
+                    {
+                        "key": "040",
+                        "val": "40.0"
+                    },
+                    {
+                        "key": "050",
+                        "val": "50.0"
+                    },
+                    {
+                        "key": "060",
+                        "val": "60.0"
+                    },
+                    {
+                        "key": "070",
+                        "val": "70.0"
+                    },
+                    {
+                        "key": "080",
+                        "val": "80.0"
+                    },
+                    {
+                        "key": "090",
+                        "val": "90.0"
+                    },
+                    {
+                        "key": "100",
+                        "val": "100.0"
+                    },
+                    {
+                        "key": "110",
+                        "val": "110.0"
+                    },
+                    {
+                        "key": "120",
+                        "val": "120.0"
+                    }
+                ]
+            },
+            {
+                "id": "bat_ac_charging_current",
+                "name": "Max. AC Charging Current",
+                "unit": "A",
+                "item": [
+                    {
+                        "key": "002",
+                        "val": "2.0"
+                    },
+                    {
+                        "key": "010",
+                        "val": "10.0"
+                    },
+                    {
+                        "key": "015",
+                        "val": "15.0"
+                    },
+                    {
+                        "key": "020",
+                        "val": "20.0"
+                    },
+                    {
+                        "key": "025",
+                        "val": "25.0"
+                    },
+                    {
+                        "key": "030",
+                        "val": "30.0"
+                    },
+                    {
+                        "key": "040",
+                        "val": "40.0"
+                    },
+                    {
+                        "key": "050",
+                        "val": "50.0"
+                    },
+                    {
+                        "key": "060",
+                        "val": "60.0"
+                    },
+                    {
+                        "key": "070",
+                        "val": "70.0"
+                    },
+                    {
+                        "key": "080",
+                        "val": "80.0"
+                    },
+                    {
+                        "key": "090",
+                        "val": "90.0"
+                    },
+                    {
+                        "key": "100",
+                        "val": "100.0"
+                    },
+                    {
+                        "key": "110",
+                        "val": "110.0"
+                    },
+                    {
+                        "key": "120",
+                        "val": "120.0"
+                    }
+                ]
+            }
+        ]
+    }
+}

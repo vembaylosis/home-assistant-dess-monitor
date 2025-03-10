@@ -1,0 +1,167 @@
+{"err": 0,
+    "desc": "ERR_NONE",
+    "dat": [
+        {
+            "devcode": 2376,
+            "uid": 4771777,
+            "optional": "bt_battery_capacity",
+            "name": "Battery percentage",
+            "uint": "%",
+            "order": 0,
+            "visable": true
+        },
+        {
+            "devcode": 2376,
+            "uid": 4771777,
+            "optional": "gd_eybond_read_15",
+            "name": "Grid Voltage",
+            "uint": "V",
+            "order": 15,
+            "visable": false
+        },
+        {
+            "devcode": 2376,
+            "uid": 4771777,
+            "optional": "gd_eybond_read_16",
+            "name": "Grid Frequency",
+            "uint": "Hz",
+            "order": 16,
+            "visable": false
+        },
+        {
+            "devcode": 2376,
+            "uid": 4771777,
+            "optional": "gd_grid_active_power",
+            "name": "Grid Power",
+            "uint": "kW",
+            "order": 17,
+            "visable": true
+        },
+        {
+            "devcode": 2376,
+            "uid": 4771777,
+            "optional": "bc_eybond_read_23",
+            "name": "Output Voltage",
+            "uint": "V",
+            "order": 23,
+            "visable": true
+        },
+        {
+            "devcode": 2376,
+            "uid": 4771777,
+            "optional": "bc_eybond_read_24",
+            "name": "Output Current",
+            "uint": "A",
+            "order": 24,
+            "visable": false
+        },
+        {
+            "devcode": 2376,
+            "uid": 4771777,
+            "optional": "bc_eybond_read_25",
+            "name": "Output frequency",
+            "uint": "Hz",
+            "order": 25,
+            "visable": false
+        },
+        {
+            "devcode": 2376,
+            "uid": 4771777,
+            "optional": "bc_load_active_power",
+            "name": "Output Active Power",
+            "uint": "kW",
+            "order": 26,
+            "visable": true
+        },
+        {
+            "devcode": 2376,
+            "uid": 4771777,
+            "optional": "bc_eybond_read_27",
+            "name": "Output Apparent Power",
+            "uint": "kVA",
+            "order": 27,
+            "visable": false
+        },
+        {
+            "devcode": 2376,
+            "uid": 4771777,
+            "optional": "bt_eybond_read_28",
+            "name": "Battery Voltage",
+            "uint": "V",
+            "order": 28,
+            "visable": true
+        },
+        {
+            "devcode": 2376,
+            "uid": 4771777,
+            "optional": "bt_eybond_read_29",
+            "name": "Battery Current",
+            "uint": "A",
+            "order": 29,
+            "visable": true
+        },
+        {
+            "devcode": 2376,
+            "uid": 4771777,
+            "optional": "battery_active_power",
+            "name": "Battery Power",
+            "uint": "kW",
+            "order": 30,
+            "visable": false
+        },
+        {
+            "devcode": 2376,
+            "uid": 4771777,
+            "optional": "pv_eybond_read_32",
+            "name": "PV Voltage",
+            "uint": "V",
+            "order": 32,
+            "visable": false
+        },
+        {
+            "devcode": 2376,
+            "uid": 4771777,
+            "optional": "pv_eybond_read_33",
+            "name": "PV Current",
+            "uint": "A",
+            "order": 33,
+            "visable": false
+        },
+        {
+            "devcode": 2376,
+            "uid": 4771777,
+            "optional": "pv_output_power",
+            "name": "PV Power",
+            "uint": "kW",
+            "order": 35,
+            "visable": false
+        },
+        {
+            "devcode": 2376,
+            "uid": 4771777,
+            "optional": "eybond_read_36",
+            "name": "PV Charge Power",
+            "uint": "kW",
+            "order": 36,
+            "visable": false
+        },
+        {
+            "devcode": 2376,
+            "uid": 4771777,
+            "optional": "gd_eybond_read_45",
+            "name": "AC charging current",
+            "uint": "A",
+            "order": 45,
+            "visable": true
+        },
+        {
+            "devcode": 2376,
+            "uid": 4771777,
+            "optional": "pv_eybond_read_46",
+            "name": "PV charging current",
+            "uint": "A",
+            "order": 46,
+            "visable": false
+        }
+    ]
+}

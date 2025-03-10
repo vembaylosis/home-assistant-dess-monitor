@@ -1,0 +1,89 @@
+{
+    "err": 0,
+    "desc": "ERR_NONE",
+    "dat": {
+        "gts": "2025-03-06 20:17:17",
+        "pars": {
+            "gd_": [
+                {
+                    "id": "gd_grid_voltage",
+                    "par": "Grid voltage",
+                    "val": "225.70",
+                    "unit": "V"
+                },
+                {
+                    "id": "gd_grid_frequency",
+                    "par": "Grid frequency",
+                    "val": "50.00",
+                    "unit": "Hz"
+                }
+            ],
+            "pv_": [
+                {
+                    "id": "pv_input_current",
+                    "par": "PV Input current for battery",
+                    "val": "0.00",
+                    "unit": "A"
+                },
+                {
+                    "id": "pv_output_power",
+                    "par": "PV Charging power",
+                    "val": "2.00",
+                    "unit": "W"
+                },
+                {
+                    "id": "pv_voltage",
+                    "par": "PV Input voltage",
+                    "val": "0.00",
+                    "unit": "V"
+                }
+            ],
+            "bt_": [
+                {
+                    "id": "bt_discharge_current",
+                    "par": "Battery discharge current",
+                    "val": "0.00",
+                    "unit": "A"
+                },
+                {
+                    "id": "bt_battery_voltage",
+                    "par": "Battery voltage",
+                    "val": "27.20",
+                    "unit": "V"
+                },
+                {
+                    "id": "bt_charging_current",
+                    "par": "Battery charging current",
+                    "val": "2.00",
+                    "unit": "A"
+                },
+                {
+                    "id": "bt_battery_capacity",
+                    "par": "Battery capacity",
+                    "val": "100.00",
+                    "unit": "%"
+                }
+            ],
+            "bc_": [
+                {
+                    "id": "bc_load_percent",
+                    "par": "Output load percent",
+                    "val": "5.00",
+                    "unit": "%"
+                },
+                {
+                    "id": "bc_output_frequency",
+                    "par": "AC output frequency",
+                    "val": "50.00",
+                    "unit": "Hz"
+                },
+                {
+                    "id": "bc_output_voltage",
+                    "par": "AC output voltage",
+                    "val": "225.70",
+                    "unit": "V"
+                }
+            ]
+        }
+    }
+}

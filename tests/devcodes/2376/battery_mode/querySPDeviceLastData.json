@@ -1,0 +1,142 @@
+{
+    "err": 0,
+    "desc": "ERR_NONE",
+    "dat": {
+        "gts": "2025-03-07 20:25:54",
+        "pars": {
+            "gd_": [
+                {
+                    "id": "gd_eybond_read_15",
+                    "par": "Grid Voltage",
+                    "val": "0.0",
+                    "unit": "V"
+                },
+                {
+                    "id": "gd_eybond_read_16",
+                    "par": "Grid Frequency",
+                    "val": "0.00",
+                    "unit": "Hz"
+                },
+                {
+                    "id": "gd_grid_active_power",
+                    "par": "Grid Power",
+                    "val": "0",
+                    "unit": "W"
+                },
+                {
+                    "id": "gd_eybond_read_45",
+                    "par": "AC charging current",
+                    "val": "0.0",
+                    "unit": "A"
+                }
+            ],
+            "sy_": [
+                {
+                    "id": "sy_eybond_read_14",
+                    "par": "Operating mode",
+                    "val": "Off-Grid Mode"
+                },
+                {
+                    "id": "sy_eybond_read_38",
+                    "par": "DC Module Termperature",
+                    "val": "24",
+                    "unit": "°C"
+                },
+                {
+                    "id": "sy_eybond_read_39",
+                    "par": "INV Module Termperature",
+                    "val": "28",
+                    "unit": "°C"
+                },
+                {
+                    "id": "sy_eybond_read_49",
+                    "par": "Output priority",
+                    "val": "UTI"
+                },
+                {
+                    "id": "sy_eybond_read_75",
+                    "par": "Charger Source Priority",
+                    "val": "PV is at the same level as mains"
+                }
+            ],
+            "pv_": [
+                {
+                    "id": "pv_eybond_read_32",
+                    "par": "PV Voltage",
+                    "val": "26.5",
+                    "unit": "V"
+                },
+                {
+                    "id": "pv_eybond_read_33",
+                    "par": "PV Current",
+                    "val": "0.0",
+                    "unit": "A"
+                },
+                {
+                    "id": "pv_output_power",
+                    "par": "PV Power",
+                    "val": "0",
+                    "unit": "W"
+                },
+                {
+                    "id": "pv_eybond_read_46",
+                    "par": "PV charging current",
+                    "val": "0.0",
+                    "unit": "A"
+                }
+            ],
+            "bt_": [
+                {
+                    "id": "bt_eybond_read_28",
+                    "par": "Battery Voltage",
+                    "val": "51.6",
+                    "unit": "V"
+                },
+                {
+                    "id": "bt_eybond_read_29",
+                    "par": "Battery Current",
+                    "val": "-43.4",
+                    "unit": "A"
+                }
+            ],
+            "bc_": [
+                {
+                    "id": "bc_eybond_read_23",
+                    "par": "Output Voltage",
+                    "val": "230.0",
+                    "unit": "V"
+                },
+                {
+                    "id": "bc_eybond_read_24",
+                    "par": "Output Current",
+                    "val": "9.4",
+                    "unit": "A"
+                },
+                {
+                    "id": "bc_eybond_read_25",
+                    "par": "Output frequency",
+                    "val": "50.00",
+                    "unit": "HZ"
+                },
+                {
+                    "id": "bc_load_active_power",
+                    "par": "Output Active Power",
+                    "val": "2140",
+                    "unit": "W"
+                },
+                {
+                    "id": "bc_eybond_read_27",
+                    "par": "Output Apparent Power",
+                    "val": "2162",
+                    "unit": "VA"
+                },
+                {
+                    "id": "bc_eybond_read_37",
+                    "par": "Load Percent",
+                    "val": "34",
+                    "unit": "%"
+                }
+            ]
+        }
+    }
+}
