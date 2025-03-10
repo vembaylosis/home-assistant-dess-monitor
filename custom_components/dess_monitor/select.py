@@ -189,10 +189,12 @@ class InverterDynamicSettingSelect(SelectBase):
                     self._last_updated = now
                     self.async_write_ha_state()
                 except ValueError:
+                    if self._last_updated is None:
+                        self._disabled_param = True
                     self._last_updated = now
-                    self._disabled_param = True
             else:
-                self._disabled_param = True
+                if self._last_updated is None:
+                    self._disabled_param = True
                 print('get_device_ctrl_value', self._inverter_device.name, self._service_param_id, response)
 
     @property
