@@ -38,13 +38,13 @@ async def async_setup_entry(
         fields = coordinator_data[item.inverter_id]['ctrl_fields']
         if fields is None:
             continue
-        async_add_entities(list(
-            map(
-                lambda field_data: InverterDynamicSettingSelect(item, coordinator, field_data),
-                filter(lambda field: 'item' in field, fields)
-            )
-        )
-        )
+        # async_add_entities(list(
+        #     map(
+        #         lambda field_data: InverterDynamicSettingSelect(item, coordinator, field_data),
+        #         filter(lambda field: 'item' in field, fields)
+        #     )
+        # )
+        # )
     if new_devices:
         async_add_entities(new_devices)
 
@@ -210,7 +210,7 @@ class InverterDynamicSettingSelect(SelectBase):
         if option in self._attr_options:
             param_id = self._service_param_id
             param_value = self._attr_options_keys[self._attr_options.index(option)]
-            print('set_ctrl_device_param', param_id, param_value)
+            # print('set_ctrl_device_param', param_id, param_value)
             await set_ctrl_device_param(
                 self.coordinator.auth['token'],
                 self.coordinator.auth['secret'],
