@@ -51,7 +51,8 @@ def resolve_battery_discharge_current(data, device_data):
                 float(next(
                     (x for x in data['last_data']['pars']['bt_']
                      if
-                     x['id'] == 'bt_battery_discharge_current'),
+                     x['id'] == 'bt_battery_discharge_current' or x['id'] == 'bt_discharge_current' or x[
+                         'par'].lower() == 'Battery discharge current'.lower()),
                     {'val': '0'}
                 )['val'])
 
@@ -80,8 +81,9 @@ def resolve_battery_charging_power(data, device_data):
             else:
                 return 0
         case _:
-            return resolve_battery_charging_current(data, device_data) * \
-                resolve_battery_charging_voltage(data, device_data)
+            return resolve_battery_charging_current(data, device_data) * (
+                        resolve_battery_charging_voltage(data, device_data) or resolve_battery_voltage(data,
+                                                                                                       device_data))
 
 
 def resolve_battery_discharge_power(data, device_data):
