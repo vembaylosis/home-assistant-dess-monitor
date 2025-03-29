@@ -141,7 +141,8 @@ def resolve_output_priority(data, device_data):
     }
     match device_data['devcode']:
         case 2341:
-            val = next((x for x in data['last_data']['pars']['bc_'] if x['id'] == 'bc_output_source_priority'), {'val': None})['val']
+            val = next((x for x in data['last_data']['pars']['bc_'] if x['id'] == 'bc_output_source_priority'),
+                       {'val': None})['val']
 
         case 2376:
             if 'sy_' not in data['last_data']['pars']:
@@ -198,8 +199,10 @@ def resolve_grid_frequency(data, device_data):
 def resolve_pv_power(data, device_data):
     match device_data['devcode']:
         case _:
-            return float(next((x for x in data['last_data']['pars']['pv_'] if
-                               x['id'] == 'pv_output_power'), {'val': '0'})['val'])
+            return (float(next((x for x in data['last_data']['pars']['pv_'] if
+                                x['id'] == 'pv_output_power'), {'val': '0'})['val'])
+                    or (float(next((x for x in data['energy_flow']['pv_status'] if
+                                    x['par'] == 'pv_output_power'), {'val': '0'})['val']) * 1000))
 
 
 def resolve_pv_voltage(data, device_data):

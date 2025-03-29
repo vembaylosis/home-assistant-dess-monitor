@@ -24,7 +24,12 @@ _LOGGER = logging.getLogger(__name__)
 # quite work as documented and always gave me the "Lokalise key references" string
 # (in square brackets), rather than the actual translated value. I did not attempt to
 # figure this out or look further into it.
-DATA_SCHEMA = vol.Schema({("username"): str, ("password"): str})
+DATA_SCHEMA = vol.Schema({
+    vol.Required("username"): str,
+    vol.Required("password"): str,
+    vol.Optional("dynamic_settings", default=False): bool,
+    # vol.Optional("raw_sensors", default=False): bool,
+})
 
 
 async def validate_input(hass: HomeAssistant, data: dict) -> dict[str, Any]:
@@ -74,7 +79,6 @@ async def validate_input(hass: HomeAssistant, data: dict) -> dict[str, Any]:
 
 
 class ConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
-
     VERSION = 1
     # Pick one of the available connection classes in homeassistant/config_entries.py
     # This tells HA if it should be asking for updates, or it'll be notified of updates
@@ -98,6 +102,8 @@ class ConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
                 return self.async_create_entry(title=info["title"], data={
                     'username': user_input['username'],
                     'password_hash': info['password_hash'],
+                    'dynamic_settings': user_input['dynamic_settings'],
+                    # 'raw_sensors': user_input['raw_sensors'],
                 })
             except CannotConnect:
                 errors["base"] = "cannot_connect"

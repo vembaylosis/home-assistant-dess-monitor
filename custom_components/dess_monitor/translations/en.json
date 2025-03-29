@@ -12,7 +12,9 @@
       "user": {
         "data": {
           "password": "Password",
-          "username": "Login"
+          "username": "Login",
+          "dynamic_settings": "Device settings",
+          "raw_sensors": "Device raw sensors"
         }
       }
     }

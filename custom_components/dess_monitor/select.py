@@ -5,7 +5,6 @@ from homeassistant.const import EntityCategory
 from homeassistant.core import HomeAssistant, callback
 from homeassistant.helpers.device_registry import DeviceInfo
 from homeassistant.helpers.entity_platform import AddEntitiesCallback
-from homeassistant.helpers.restore_state import RestoreEntity
 from homeassistant.helpers.update_coordinator import CoordinatorEntity
 
 from custom_components.dess_monitor import MyCoordinator, HubConfigEntry
@@ -38,13 +37,15 @@ async def async_setup_entry(
         fields = coordinator_data[item.inverter_id]['ctrl_fields']
         if fields is None:
             continue
-        # async_add_entities(list(
-        #     map(
-        #         lambda field_data: InverterDynamicSettingSelect(item, coordinator, field_data),
-        #         filter(lambda field: 'item' in field, fields)
-        #     )
-        # )
-        # )
+        # print(config_entry.data)
+        if config_entry.data['dynamic_settings']:
+            async_add_entities(list(
+                map(
+                    lambda field_data: InverterDynamicSettingSelect(item, coordinator, field_data),
+                    filter(lambda field: 'item' in field, fields)
+                )
+            )
+            )
     if new_devices:
         async_add_entities(new_devices)
 
