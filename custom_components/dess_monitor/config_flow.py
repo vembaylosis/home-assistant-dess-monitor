@@ -6,9 +6,10 @@ from typing import Any
 
 import voluptuous as vol
 from homeassistant import config_entries, exceptions
-from homeassistant.core import HomeAssistant
+from homeassistant.core import HomeAssistant, callback
+from homeassistant.helpers.selector import selector
 
-from .api import auth_user
+from .api import auth_user, get_devices
 from .const import DOMAIN  # pylint:disable=unused-import
 
 _LOGGER = logging.getLogger(__name__)
@@ -86,6 +87,13 @@ class ConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
     # changes.
     CONNECTION_CLASS = config_entries.CONN_CLASS_LOCAL_PUSH
 
+    def __init__(self):
+        self._devices = []
+        self._dynamic_settings = False
+        self._username = None
+        self._password_hash = None
+        self._info = None
+
     async def async_step_user(self, user_input=None):
         """Handle the initial step."""
         # This goes through the steps to take the user through the setup process.
@@ -98,13 +106,20 @@ class ConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
         if user_input is not None:
             try:
                 info = await validate_input(self.hass, user_input)
-
-                return self.async_create_entry(title=info["title"], data={
-                    'username': user_input['username'],
-                    'password_hash': info['password_hash'],
-                    'dynamic_settings': user_input['dynamic_settings'],
-                    # 'raw_sensors': user_input['raw_sensors'],
-                })
+                self._info = info
+                self._username = user_input['username']
+                self._password_hash = info['password_hash']
+                self._dynamic_settings = user_input['dynamic_settings']
+                devices = await get_devices(info['auth']['token'], info['auth']['secret'])
+                active_devices = [device for device in devices if device['status'] != 1]
+                self._devices = active_devices
+                return await self.async_step_select_devices()
+                # return self.async_create_entry(title=info["title"], data={
+                #     'username': user_input['username'],
+                #     'password_hash': info['password_hash'],
+                #     'dynamic_settings': user_input['dynamic_settings'],
+                #     # 'raw_sensors': user_input['raw_sensors'],
+                # })
             except CannotConnect:
                 errors["base"] = "cannot_connect"
             except InvalidAuth:
@@ -120,6 +135,79 @@ class ConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
         # If there is no user input or there were errors, show the form again, including any errors that were found with the input.
         return self.async_show_form(
             step_id="user", data_schema=DATA_SCHEMA, errors=errors
+        )
+
+    async def async_step_select_devices(self, user_input=None):
+        if user_input is not None:
+            devices = user_input["devices"]  # List of selected device IDs
+            print("devices_selected", devices)
+            if len(devices) > 0:
+                return self.async_create_entry(title=self._info["title"], data={
+                    'username': self._username,
+                    'password_hash': self._password_hash,
+                    'dynamic_settings': self._dynamic_settings,
+                    'devices': devices
+                    # 'raw_sensors': user_input['raw_sensors'],
+                })
+
+        return self.async_show_form(
+            step_id="select_devices",
+            data_schema=vol.Schema({
+                vol.Required("devices"): selector({
+                    "select": {
+                        "multiple": True,
+                        "options": [
+                            {"value": str(device['uid']),
+                             "label": f'{device['devalias']}; pn: {device['pn']}; devcode: {device['devcode']}'}
+                            for device in self._devices
+                        ]
+                    }
+                })
+            }),
+        )
+
+    @staticmethod
+    @callback
+    def async_get_options_flow(config_entry):
+        return OptionsFlow(config_entry)
+
+
+class OptionsFlow(config_entries.OptionsFlow):
+    def __init__(self, config_entry: config_entries.ConfigEntry):
+        self.config_entry = config_entry
+        self._devices = {}  # All available devices
+
+    async def async_step_init(self, user_input=None):
+        if user_input is not None:
+            return self.async_create_entry(title="", data={
+                "devices": user_input["devices"]
+            })
+
+        # Get login data from the config entry
+        username = self.config_entry.data["username"]
+        password_hash = self.config_entry.data["password_hash"]
+        auth = await auth_user(username, password_hash)
+        devices = await get_devices(auth['token'], auth['secret'])
+        active_devices = [device for device in devices if device['status'] != 1]
+        self._devices = active_devices
+
+        return self.async_show_form(
+            step_id="init",
+            data_schema=vol.Schema({
+                vol.Required(
+                    "devices",
+                    default=self.config_entry.data["devices"] or []
+                ): selector({
+                    "select": {
+                        "multiple": True,
+                        "options": [
+                            {"value": str(device['uid']),
+                             "label": f'{device['devalias']}; pn: {device['pn']}; devcode: {device['devcode']}'}
+                            for device in self._devices
+                        ]
+                    }
+                })
+            })
         )
 
 
