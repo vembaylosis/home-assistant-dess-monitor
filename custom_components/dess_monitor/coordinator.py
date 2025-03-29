@@ -81,9 +81,9 @@ class MyCoordinator(DataUpdateCoordinator):
         devices = await get_devices(self.auth['token'], self.auth['secret'])
         active_devices = [device for device in devices if device['status'] != 1]
         selected_devices = [device for device in active_devices if
-                            str(device['uid']) in self.config_entry.data["devices"]] if (self.config_entry.data[
-                                                                                             "devices"] is not None and len(
-            self.config_entry.data["devices"]) > 0) else active_devices
+                            str(device['uid']) in self.config_entry.data["devices"]] if (
+                    "devices" in self.config_entry.data and len(
+                self.config_entry.data["devices"]) > 0) else active_devices
         return selected_devices
 
     async def _async_update_data(self):
