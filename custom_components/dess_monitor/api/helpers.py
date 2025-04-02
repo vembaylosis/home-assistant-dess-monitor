@@ -82,8 +82,8 @@ def resolve_battery_charging_power(data, device_data):
                 return 0
         case _:
             return resolve_battery_charging_current(data, device_data) * (
-                        resolve_battery_charging_voltage(data, device_data) or resolve_battery_voltage(data,
-                                                                                                       device_data))
+                    resolve_battery_charging_voltage(data, device_data) or resolve_battery_voltage(data,
+                                                                                                   device_data))
 
 
 def resolve_battery_discharge_power(data, device_data):
@@ -106,9 +106,14 @@ def resolve_battery_discharge_power(data, device_data):
 def resolve_active_load_power(data, device_data):
     match device_data['devcode']:
         case _:
+            keys = [
+                'load_active_power',
+                'output_power',
+                'bc_load_active_power',
+            ]
             return (float(
                 next((x for x in data['energy_flow']['bc_status'] if
-                      x['par'] == 'load_active_power'), {'val': '0'})['val']) * 1000)
+                      x['par'] in keys and x['unit'] == 'kW'), {'val': '0'})['val']) * 1000)
 
 
 def resolve_active_load_percentage(data, device_data):
