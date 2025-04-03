@@ -1,6 +1,5 @@
-import asyncio
 import logging
-from datetime import timedelta, datetime
+from datetime import timedelta
 
 import async_timeout
 from homeassistant.core import HomeAssistant
@@ -81,7 +80,11 @@ class MyCoordinator(DataUpdateCoordinator):
     async def get_active_devices(self):
         devices = await get_devices(self.auth['token'], self.auth['secret'])
         active_devices = [device for device in devices if device['status'] != 1]
-        return active_devices
+        selected_devices = [device for device in active_devices if
+                            str(device['uid']) in self.config_entry.data["devices"]] if (
+                    "devices" in self.config_entry.data and len(
+                self.config_entry.data["devices"]) > 0) else active_devices
+        return selected_devices
 
     async def _async_update_data(self):
         """Fetch data from API endpoint.

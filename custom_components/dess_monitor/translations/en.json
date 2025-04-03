@@ -16,6 +16,11 @@
           "dynamic_settings": "Device settings",
           "raw_sensors": "Device raw sensors"
         }
+      },
+      "select_devices": {
+        "data": {
+          "devices": "Select required devices"
+        }
       }
     }
   }
