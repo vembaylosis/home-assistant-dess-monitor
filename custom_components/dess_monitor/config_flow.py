@@ -157,8 +157,10 @@ class ConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
                     "select": {
                         "multiple": True,
                         "options": [
-                            {"value": str(device['uid']),
-                             "label": f'{device['devalias']}; pn: {device['pn']}; devcode: {device['devcode']}'}
+                            {
+                                "value": str(device['uid']),
+                                "label": f'{device['devalias']}; pn: {device['pn']}; devcode: {device['devcode']}'
+                            }
                             for device in self._devices
                         ]
                     }
