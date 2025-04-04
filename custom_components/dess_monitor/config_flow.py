@@ -197,9 +197,8 @@ class OptionsFlow(config_entries.OptionsFlow):
             data_schema=vol.Schema({
                 vol.Required(
                     "devices",
-                    default=self._config_entry.options["devices"] if 'devices' in self._config_entry.options else [
-                        lambda x: str(x['uid']) for device in devices if device['status'] != 1
-                    ]
+                    default=self._config_entry.options.get('devices',
+                                                           list(map(lambda x: str(x['uid']), active_devices)))
                 ): selector({
                     "select": {
                         "multiple": True,

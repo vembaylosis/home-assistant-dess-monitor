@@ -144,7 +144,7 @@ class MyCoordinator(DataUpdateCoordinator):
             # Raising ConfigEntryAuthFailed will cancel future updates
             # and start a config flow with SOURCE_REAUTH (async_step_reauth)
             raise err
-        except:
+        except AuthInvalidateError:
             await self.create_auth()
             # raise ConfigEntryAuthFailed from err
         # except ApiError as err:

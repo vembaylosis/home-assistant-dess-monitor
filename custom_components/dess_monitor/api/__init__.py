@@ -85,11 +85,17 @@ async def create_auth_api_request(token, secret, params, raise_error=True):
                 return json['dat']
             else:
                 if raise_error:
+                    if json['err'] == 10:
+                        raise AuthInvalidateError
                     raise Exception(
                         f'Error {json["err"]} while creating auth api request: {json["desc"]}'
                     )
                 else:
                     return json
+
+
+class AuthInvalidateError(Exception):
+    pass
 
 
 async def create_auth_api_remote_request(token, secret, params, raise_error=True):
