@@ -150,7 +150,7 @@ class InverterDynamicSettingNumber(NumberBase):
         """Update the current value."""
         param_id = self._service_param_id
         param_value = str(value)
-        print('set_ctrl_device_param', param_id, param_value)
+        # print('set_ctrl_device_param', param_id, param_value)
         await set_ctrl_device_param(
             self.coordinator.auth['token'],
             self.coordinator.auth['secret'],

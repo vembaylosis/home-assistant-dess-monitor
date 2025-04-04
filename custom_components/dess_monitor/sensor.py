@@ -77,6 +77,23 @@ async def async_setup_entry(
         new_devices.append(InverterRatedBatteryVoltageSensor(item, hub.coordinator))
         new_devices.append(InverterComebackUtilityVoltageSensor(item, hub.coordinator))
         new_devices.append(InverterComebackBatteryVoltageSensor(item, hub.coordinator))
+        if 'raw_sensors' not in config_entry.options:
+            continue
+        if not config_entry.options.get('raw_sensors', False):
+            continue
+        if hub.coordinator.data is None or item.inverter_id not in hub.coordinator.data:
+            continue
+        data = hub.coordinator.data[item.inverter_id]
+        allowed_units = [
+            'kW',
+            'W',
+            'A',
+            'V'
+        ]
+        for parameter in data['pars']['parameter']:
+            if parameter['unit'] not in allowed_units:
+                continue
+            new_devices.append(InverterDynamicSensor(item, hub.coordinator, parameter))
     if new_devices:
         async_add_entities(new_devices)
 
@@ -132,6 +149,7 @@ class SensorBase(CoordinatorEntity, SensorEntity):
     #     # The opposite of async_added_to_hass. Remove any registered call backs here.
     #     self._inverter_device.remove_callback(self.async_write_ha_state)
 
+
 class MyEnergySensor(RestoreSensor, SensorBase):
     _attr_device_class = SensorDeviceClass.ENERGY
     _attr_state_class = SensorStateClass.TOTAL_INCREASING
@@ -163,6 +181,7 @@ class MyEnergySensor(RestoreSensor, SensorBase):
     def available(self) -> bool:
         """Return True if inverter_device and hub is available."""
         return self._inverter_device.online and self._inverter_device.hub.online and self._is_restored_value
+
 
 class BatteryVoltageSensor(SensorBase):
     """Representation of a Sensor."""
@@ -921,4 +940,55 @@ class InverterInvTemperatureSensor(SensorBase):
         data = self.data
         device_data = self._inverter_device.device_data
         self._attr_native_value = resolve_inv_temperature(data, device_data)
+        self.async_write_ha_state()
+
+
+class InverterDynamicSensor(SensorBase):
+    """Representation of a Sensor."""
+    # device_class = SensorDeviceClass.TEMPERATURE
+    # _attr_unit_of_measurement = UnitOfTemperature.CELSIUS
+    # _attr_native_unit_of_measurement = UnitOfTemperature.CELSIUS
+    _attr_entity_category = EntityCategory.DIAGNOSTIC
+
+    # _attr_suggested_display_precision = 0
+    # _sensor_option_display_precision = 0
+
+    def __init__(self, inverter_device: InverterDevice, coordinator: MyCoordinator, sensor_data):
+        """Initialize the sensor."""
+        super().__init__(inverter_device, coordinator)
+        # "par": "bt_battery_charging_current",
+        # "name": "Battery Charging Current",
+        # "val": "0.0000",
+        # "unit": "A"
+        self._sensor_par_id = sensor_data['par']
+        self._attr_unique_id = f"{self._inverter_device.inverter_id}_{sensor_data['par']}"
+        self._attr_name = f"{self._inverter_device.name} Raw {sensor_data['name']}"
+
+        device_class_map = {
+            'kW': SensorDeviceClass.POWER,
+            'W': SensorDeviceClass.POWER,
+            'A': SensorDeviceClass.CURRENT,
+            'V': SensorDeviceClass.VOLTAGE,
+        }
+        # unit_map = {
+        #     'kW': UnitOfPower.KILO_WATT,
+        #     'W': UnitOfPower.WATT,
+        #     'A': UnitOfElectricCurrent.AMPERE,
+        #     'V': UnitOfElectricPotential.VOLT,
+        # }
+        self._attr_device_class = device_class_map[sensor_data['unit']]
+        # self._unit_of_measurement = sensor_data['unit']
+        self._attr_unit_of_measurement = sensor_data['unit']
+        self._attr_native_unit_of_measurement = sensor_data['unit']
+        self._attr_native_value = float(sensor_data['val'])
+        # self.async_write_ha_state()
+
+    @callback
+    def _handle_coordinator_update(self) -> None:
+        """Handle updated data from the coordinator."""
+        data = self.data
+        # device_data = self._inverter_device.device_data
+        self._attr_native_value = float(
+            next((x for x in data['pars']['parameter'] if
+                  x['par'] == self._sensor_par_id), {'val': '0'})['val'])
         self.async_write_ha_state()

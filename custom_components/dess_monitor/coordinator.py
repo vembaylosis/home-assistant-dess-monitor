@@ -73,7 +73,7 @@ class MyCoordinator(DataUpdateCoordinator):
 
     async def check_auth(self):
         now = int(datetime.now().timestamp())
-        print(self.auth)
+        # print(self.auth)
         if self.auth_issued_at is None or (now - (self.auth_issued_at + (self.auth['expire'])) <= 3600):
             await self.create_auth()
 
@@ -81,9 +81,9 @@ class MyCoordinator(DataUpdateCoordinator):
         devices = await get_devices(self.auth['token'], self.auth['secret'])
         active_devices = [device for device in devices if device['status'] != 1]
         selected_devices = [device for device in active_devices if
-                            str(device['uid']) in self.config_entry.data["devices"]] if (
-                    "devices" in self.config_entry.data and len(
-                self.config_entry.data["devices"]) > 0) else active_devices
+                            str(device['uid']) in self.config_entry.options["devices"]] if (
+                    "devices" in self.config_entry.options and len(
+                self.config_entry.options["devices"]) > 0) else active_devices
         return selected_devices
 
     async def _async_update_data(self):
@@ -144,7 +144,7 @@ class MyCoordinator(DataUpdateCoordinator):
             # Raising ConfigEntryAuthFailed will cancel future updates
             # and start a config flow with SOURCE_REAUTH (async_step_reauth)
             raise err
-        except Exception as e:
+        except:
             await self.create_auth()
             # raise ConfigEntryAuthFailed from err
         # except ApiError as err:

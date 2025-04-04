@@ -182,9 +182,9 @@ async def get_device_ctrl_value(token: str, secret: str, device_identity, param_
         **extract_device_identity(device_identity),
     }
     start = int(datetime.now().timestamp() * 1000)
-    print(payload)
+    # print(payload)
     response = await create_auth_api_request(token, secret, payload, False)
-    print('get_device_ctrl_value time', int(datetime.now().timestamp() * 1000) - start)
+    # print('get_device_ctrl_value time', int(datetime.now().timestamp() * 1000) - start)
     return response
 
 

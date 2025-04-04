@@ -29,7 +29,7 @@ DATA_SCHEMA = vol.Schema({
     vol.Required("username"): str,
     vol.Required("password"): str,
     vol.Optional("dynamic_settings", default=False): bool,
-    # vol.Optional("raw_sensors", default=False): bool,
+    vol.Optional("raw_sensors", default=False): bool,
 })
 
 
@@ -140,14 +140,14 @@ class ConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
     async def async_step_select_devices(self, user_input=None):
         if user_input is not None:
             devices = user_input["devices"]  # List of selected device IDs
-            print("devices_selected", devices)
+            # print("devices_selected", devices)
             if len(devices) > 0:
                 return self.async_create_entry(title=self._info["title"], data={
                     'username': self._username,
                     'password_hash': self._password_hash,
                     'dynamic_settings': self._dynamic_settings,
-                    'devices': devices
-                    # 'raw_sensors': user_input['raw_sensors'],
+                    'devices': devices,
+                    'raw_sensors': user_input['raw_sensors'],
                 })
 
         return self.async_show_form(
@@ -174,18 +174,17 @@ class ConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
 
 class OptionsFlow(config_entries.OptionsFlow):
     def __init__(self, config_entry: config_entries.ConfigEntry):
-        self.config_entry = config_entry
-        self._devices = {}  # All available devices
+        self._config_entry = config_entry
+        self._devices = []  # All available devices
 
     async def async_step_init(self, user_input=None):
         if user_input is not None:
-            return self.async_create_entry(title="", data={
-                "devices": user_input["devices"]
-            })
+            # print('user_input', user_input)
+            return self.async_create_entry(data=user_input)
 
         # Get login data from the config entry
-        username = self.config_entry.data["username"]
-        password_hash = self.config_entry.data["password_hash"]
+        username = self._config_entry.data["username"]
+        password_hash = self._config_entry.data["password_hash"]
         auth = await auth_user(username, password_hash)
         devices = await get_devices(auth['token'], auth['secret'])
         active_devices = [device for device in devices if device['status'] != 1]
@@ -196,8 +195,9 @@ class OptionsFlow(config_entries.OptionsFlow):
             data_schema=vol.Schema({
                 vol.Required(
                     "devices",
-                    default=self.config_entry.data["devices"] if 'devices' in self.config_entry.data else [
-                        lambda x: str(x['uid']) for device in devices if device['status'] != 1]
+                    default=self._config_entry.options["devices"] if 'devices' in self._config_entry.options else [
+                        lambda x: str(x['uid']) for device in devices if device['status'] != 1
+                    ]
                 ): selector({
                     "select": {
                         "multiple": True,
@@ -207,7 +207,11 @@ class OptionsFlow(config_entries.OptionsFlow):
                             for device in self._devices
                         ]
                     }
-                })
+                }),
+                vol.Optional("dynamic_settings",
+                             default=self._config_entry.options.get('dynamic_settings', False)): bool,
+                vol.Optional("raw_sensors",
+                             default=self._config_entry.options.get('raw_sensors', False)): bool,
             })
         )
 

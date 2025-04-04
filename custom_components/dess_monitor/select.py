@@ -38,7 +38,7 @@ async def async_setup_entry(
         if fields is None:
             continue
         # print(config_entry.data)
-        if config_entry.data['dynamic_settings']:
+        if config_entry.options['dynamic_settings']:
             async_add_entities(list(
                 map(
                     lambda field_data: InverterDynamicSettingSelect(item, coordinator, field_data),
@@ -196,7 +196,7 @@ class InverterDynamicSettingSelect(SelectBase):
             else:
                 if self._last_updated is None:
                     self._disabled_param = True
-                print('get_device_ctrl_value', self._inverter_device.name, self._service_param_id, response)
+                # print('get_device_ctrl_value', self._inverter_device.name, self._service_param_id, response)
 
     @property
     def available(self) -> bool:

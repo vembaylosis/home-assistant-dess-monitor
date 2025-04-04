@@ -23,5 +23,17 @@
         }
       }
     }
+  },
+  "options": {
+    "step": {
+      "init": {
+        "title": "Update hub parameters",
+        "data": {
+          "devices": "Available devices",
+          "dynamic_settings": "Dynamic settings",
+          "raw_sensors": "Raw sensors"
+        }
+      }
+    }
   }
 }
