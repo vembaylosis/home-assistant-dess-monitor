@@ -90,6 +90,7 @@ class ConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
     def __init__(self):
         self._devices = []
         self._dynamic_settings = False
+        self._raw_sensors = False
         self._username = None
         self._password_hash = None
         self._info = None
@@ -110,6 +111,7 @@ class ConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
                 self._username = user_input['username']
                 self._password_hash = info['password_hash']
                 self._dynamic_settings = user_input['dynamic_settings']
+                self._raw_sensors = user_input['raw_sensors']
                 devices = await get_devices(info['auth']['token'], info['auth']['secret'])
                 active_devices = [device for device in devices if device['status'] != 1]
                 self._devices = active_devices
@@ -147,7 +149,7 @@ class ConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
                     'password_hash': self._password_hash,
                     'dynamic_settings': self._dynamic_settings,
                     'devices': devices,
-                    'raw_sensors': user_input['raw_sensors'],
+                    'raw_sensors': self._raw_sensors,
                 })
 
         return self.async_show_form(

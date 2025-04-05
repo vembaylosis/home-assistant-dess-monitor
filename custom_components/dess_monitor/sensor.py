@@ -1,5 +1,6 @@
 """Platform for sensor integration."""
 from datetime import datetime
+from enum import Enum
 
 from homeassistant.components.sensor import (
     SensorDeviceClass, SensorEntity, SensorStateClass, RestoreSensor,
@@ -89,12 +90,25 @@ async def async_setup_entry(
             'kW',
             'W',
             'A',
-            'V'
+            'V',
+            'HZ',
+            '%',
         ]
         for parameter in data['pars']['parameter']:
             if parameter['unit'] not in allowed_units:
                 continue
-            new_devices.append(InverterDynamicSensor(item, hub.coordinator, parameter))
+            new_devices.append(InverterDynamicSensor(item, hub.coordinator, parameter, DessSensorSource.PARS_ES))
+        keys = data['last_data']['pars'].keys()
+        for key in keys:
+            for parameter in data['last_data']['pars'][key]:
+                if parameter['unit'] not in allowed_units:
+                    continue
+                new_devices.append(InverterDynamicSensor(item, hub.coordinator, {
+                    'par': parameter['id'],
+                    'name': parameter['par'],
+                    'val': parameter['val'],
+                    'unit': parameter['unit'],
+                }, DessSensorSource.SP_LAST_DATA))
     if new_devices:
         async_add_entities(new_devices)
 
@@ -967,6 +981,12 @@ class InverterInvTemperatureSensor(SensorBase):
         self.async_write_ha_state()
 
 
+class DessSensorSource(Enum):
+    PARS_ES = 'pars'
+    SP_LAST_DATA = 'last_data'
+    ENERGY_FLOW = 'energy_flow'
+
+
 class InverterDynamicSensor(SensorBase):
     """Representation of a Sensor."""
     # device_class = SensorDeviceClass.TEMPERATURE
@@ -977,7 +997,8 @@ class InverterDynamicSensor(SensorBase):
     # _attr_suggested_display_precision = 0
     # _sensor_option_display_precision = 0
 
-    def __init__(self, inverter_device: InverterDevice, coordinator: MyCoordinator, sensor_data):
+    def __init__(self, inverter_device: InverterDevice, coordinator: MyCoordinator, sensor_data,
+                 sensor_source: DessSensorSource):
         """Initialize the sensor."""
         super().__init__(inverter_device, coordinator)
         # "par": "bt_battery_charging_current",
@@ -985,7 +1006,8 @@ class InverterDynamicSensor(SensorBase):
         # "val": "0.0000",
         # "unit": "A"
         self._sensor_par_id = sensor_data['par']
-        self._attr_unique_id = f"{self._inverter_device.inverter_id}_{sensor_data['par']}"
+        self._sensor_source = sensor_source
+        self._attr_unique_id = f"{self._inverter_device.inverter_id}_raw_{sensor_data['par']}"
         self._attr_name = f"{self._inverter_device.name} Raw {sensor_data['name']}"
 
         device_class_map = {
@@ -993,17 +1015,22 @@ class InverterDynamicSensor(SensorBase):
             'W': SensorDeviceClass.POWER,
             'A': SensorDeviceClass.CURRENT,
             'V': SensorDeviceClass.VOLTAGE,
+            'HZ': SensorDeviceClass.FREQUENCY,
+            '%': SensorDeviceClass.BATTERY,
         }
-        # unit_map = {
-        #     'kW': UnitOfPower.KILO_WATT,
-        #     'W': UnitOfPower.WATT,
-        #     'A': UnitOfElectricCurrent.AMPERE,
-        #     'V': UnitOfElectricPotential.VOLT,
-        # }
+        unit_map = {
+            'kW': UnitOfPower.KILO_WATT,
+            'W': UnitOfPower.WATT,
+            'A': UnitOfElectricCurrent.AMPERE,
+            'V': UnitOfElectricPotential.VOLT,
+            'HZ': UnitOfFrequency.HERTZ,
+            '%': PERCENTAGE,
+        }
+        display_unit = unit_map[sensor_data['unit']]
         self._attr_device_class = device_class_map[sensor_data['unit']]
         # self._unit_of_measurement = sensor_data['unit']
-        self._attr_unit_of_measurement = sensor_data['unit']
-        self._attr_native_unit_of_measurement = sensor_data['unit']
+        self._attr_unit_of_measurement = display_unit
+        self._attr_native_unit_of_measurement = display_unit
         self._attr_native_value = float(sensor_data['val'])
         # self.async_write_ha_state()
 
@@ -1011,8 +1038,19 @@ class InverterDynamicSensor(SensorBase):
     def _handle_coordinator_update(self) -> None:
         """Handle updated data from the coordinator."""
         data = self.data
-        # device_data = self._inverter_device.device_data
-        self._attr_native_value = float(
-            next((x for x in data['pars']['parameter'] if
-                  x['par'] == self._sensor_par_id), {'val': '0'})['val'])
+
+        def get_prefix(s):
+            return s.split("_", 1)[0] + "_"
+
+        match self._sensor_source:
+            case DessSensorSource.PARS_ES:
+                self._attr_native_value = float(
+                    next((x for x in data['pars']['parameter'] if x['par'] == self._sensor_par_id), {'val': '0'})['val']
+                )
+            case DessSensorSource.SP_LAST_DATA:
+                key = get_prefix(self._sensor_par_id)
+                self._attr_native_value = float(
+                    next((x for x in data['last_data']['pars'][key] if x['id'] == self._sensor_par_id), {'val': '0'})[
+                        'val']
+                )
         self.async_write_ha_state()
