@@ -58,6 +58,7 @@ async def async_setup_entry(
         new_devices.append(BatteryDischargePowerSensor(item, hub.coordinator))
         new_devices.append(BatteryInEnergySensor(item, hub.coordinator))
         new_devices.append(BatteryOutEnergySensor(item, hub.coordinator))
+        new_devices.append(BatteryCapacitySensor(item, hub.coordinator))
         # inverter sensors
         new_devices.append(InverterStatusSensor(item, hub.coordinator))
         new_devices.append(InverterOutputPrioritySensor(item, hub.coordinator))
@@ -373,6 +374,29 @@ class InverterLoadSensor(SensorBase):
         data = self.data
         device_data = self._inverter_device.device_data
         self._attr_native_value = resolve_active_load_percentage(data, device_data)
+        self.async_write_ha_state()
+
+
+class BatteryCapacitySensor(SensorBase):
+    """Representation of a Sensor."""
+    device_class = SensorDeviceClass.BATTERY
+    _attr_unit_of_measurement = PERCENTAGE
+    _attr_native_unit_of_measurement = PERCENTAGE
+    _attr_suggested_display_precision = 0
+    _sensor_option_display_precision = 0
+
+    def __init__(self, inverter_device: InverterDevice, coordinator: MyCoordinator):
+        """Initialize the sensor."""
+        super().__init__(inverter_device, coordinator)
+        self._attr_unique_id = f"{self._inverter_device.inverter_id}_battery_capacity"
+        self._attr_name = f"{self._inverter_device.name} Battery Capacity"
+
+    @callback
+    def _handle_coordinator_update(self) -> None:
+        """Handle updated data from the coordinator."""
+        data = self.data
+        device_data = self._inverter_device.device_data
+        self._attr_native_value = resolve_battery_capacity(data, device_data)
         self.async_write_ha_state()
 
 

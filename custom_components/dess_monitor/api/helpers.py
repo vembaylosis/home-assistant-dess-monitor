@@ -188,6 +188,7 @@ def resolve_charge_priority(data, device_data):
             else:
                 return None
 
+
 def resolve_grid_in_power(data, device_data):
     match device_data['devcode']:
         case _:
@@ -195,13 +196,26 @@ def resolve_grid_in_power(data, device_data):
                                x['id'] == 'gd_grid_active_power'), {'val': '0'})['val'])
 
 
+def resolve_battery_capacity(data, device_data):
+    match device_data['devcode']:
+        case _:  # 2376
+            return float(next((x for x in data['energy_flow']['bt_status'] if
+                               x['par'] == 'bt_battery_capacity'), {'val': '0'})['val'])
+
+
 def resolve_grid_frequency(data, device_data):
+    ids = [
+        'gd_grid_frequency',
+        'gd_ac_input_frequency'
+    ]
+    pars = [
+        'Grid frequency'.lower()
+    ]
     match device_data['devcode']:
         case _:
             return next((x for x in data['last_data']['pars']['gd_'] if
-                         x['id'] == 'gd_grid_frequency' or
-                         x['id'] == 'gd_ac_input_frequency' or
-                         x['par'].lower() == 'Grid frequency'.lower()
+                         x['id'] in ids or
+                         x['par'].lower() in pars
                          ), {'val': None})['val']
 
 
