@@ -13,7 +13,8 @@ async def async_get_config_entry_diagnostics(hass: HomeAssistant, entry: ConfigE
     return {
         "config_entry": {
             "title": entry.title,
-            "data": async_redact_data(entry.data, ['username', 'password_hash']),
+            "data": async_redact_data(entry.data,
+                                      ['title', 'email', 'username', 'password_hash']),
             "options": dict(entry.options),
         },
     }
@@ -25,8 +26,9 @@ async def async_get_device_diagnostics(
     """Return diagnostics for a device entry."""
     return {
         "device": {
-            'pn': device.model,
             'devcode': device.hw_version,
-            'data': entry.runtime_data.coordinator.data[device.model]
+            'data': async_redact_data(entry.runtime_data.coordinator.data[device.model], [
+                'devalias', 'pn', 'sn', 'collalias', 'usr'
+            ])
         }
     }
