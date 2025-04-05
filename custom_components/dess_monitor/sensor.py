@@ -783,7 +783,7 @@ class InverterOutputPrioritySensor(SensorBase):
 class InverterChargePrioritySensor(SensorBase):
     """Representation of a Sensor."""
     device_class = SensorDeviceClass.ENUM
-    options = ['SOLAR_PRIORITY', 'SOLAR_ONLY', 'SOLAR_AND_UTILITY']
+    options = ['SOLAR_PRIORITY', 'SOLAR_ONLY', 'SOLAR_AND_UTILITY', 'NONE']
     _attr_entity_category = EntityCategory.DIAGNOSTIC
 
     def __init__(self, inverter_device: InverterDevice, coordinator: MyCoordinator):

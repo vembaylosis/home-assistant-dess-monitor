@@ -174,17 +174,19 @@ def resolve_charge_priority(data, device_data):
         'Solar priority': 'SOLAR_PRIORITY',
         'Solar and mains': 'SOLAR_AND_UTILITY',
         'Solar only': 'SOLAR_ONLY',
+        'N/A': 'NONE',
         None: None,
     }
     match device_data['devcode']:
         case _:
-            return \
-                mapper[
-                    next(
-                        (x for x in data['last_data']['pars']['bt_']
-                         if
-                         x['id'] == 'bt_charger_source_priority'), {'val': None})['val']]
-
+            key = next(
+                (x for x in data['last_data']['pars']['bt_']
+                 if
+                 x['id'] == 'bt_charger_source_priority'), {'val': None})['val']
+            if key in mapper:
+                return mapper[key]
+            else:
+                return None
 
 def resolve_grid_in_power(data, device_data):
     match device_data['devcode']:
