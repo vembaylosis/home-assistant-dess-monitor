@@ -320,6 +320,7 @@ async def get_inverter_output_priority(token: str, secret: str, device_data):
                 'Utility first': 'Utility',
                 'Utility': 'Utility',
                 'Solar first': 'Solar',
+                'Solar': 'Solar',
                 'SBU': 'SBU',
                 'SBU first': 'SBU',
                 None: None
@@ -332,6 +333,7 @@ async def get_inverter_output_priority(token: str, secret: str, device_data):
                 'Utility first': 'Utility',
                 'Utility': 'Utility',
                 'Solar first': 'Solar',
+                'Solar': 'Solar',
                 'SBU': 'SBU',
                 'SBU first': 'SBU',
                 None: None
