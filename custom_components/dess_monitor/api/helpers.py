@@ -318,6 +318,7 @@ async def get_inverter_output_priority(token: str, secret: str, device_data):
         case 2341:
             map_param_value = {
                 'Utility first': 'Utility',
+                'Utility': 'Utility',
                 'Solar first': 'Solar',
                 'SBU': 'SBU',
                 'SBU first': 'SBU',
@@ -329,6 +330,7 @@ async def get_inverter_output_priority(token: str, secret: str, device_data):
         case 2428:
             map_param_value = {
                 'Utility first': 'Utility',
+                'Utility': 'Utility',
                 'Solar first': 'Solar',
                 'SBU': 'SBU',
                 'SBU first': 'SBU',
@@ -341,5 +343,6 @@ async def get_inverter_output_priority(token: str, secret: str, device_data):
         case _:
             return
     result = await get_device_ctrl_value(token, secret, device_data, param_id)
-
+    if result['val'] not in map_param_value:
+        return None
     return map_param_value[result['val']]
