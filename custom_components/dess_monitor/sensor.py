@@ -42,96 +42,89 @@ async def async_setup_entry(
 
     new_devices = []
     for item in hub.items:
-        # grid sensors
-        new_devices.append(GridInputVoltageSensor(item, hub.coordinator))
-        new_devices.append(GridInputFrequencySensor(item, hub.coordinator))
-        new_devices.append(GridInputPowerSensor(item, hub.coordinator))
-        # pv sensors
-        new_devices.append(PVPowerSensor(item, hub.coordinator))
-        new_devices.append(PVPowerTotalSensor(item, hub.coordinator))  # deprecated
-        new_devices.append(PVEnergySensor(item, hub.coordinator))
-        new_devices.append(PVVoltageSensor(item, hub.coordinator))
-        # battery sensors
-        new_devices.append(BatteryVoltageSensor(item, hub.coordinator))
-        new_devices.append(BatteryChargeSensor(item, hub.coordinator))
-        new_devices.append(BatteryChargePowerSensor(item, hub.coordinator))
-        new_devices.append(BatteryDischargeSensor(item, hub.coordinator))
-        new_devices.append(BatteryDischargePowerSensor(item, hub.coordinator))
-        new_devices.append(BatteryInEnergySensor(item, hub.coordinator))
-        new_devices.append(BatteryOutEnergySensor(item, hub.coordinator))
-        new_devices.append(BatteryCapacitySensor(item, hub.coordinator))
-        # inverter sensors
-        new_devices.append(InverterStatusSensor(item, hub.coordinator))
-        new_devices.append(InverterOutputPrioritySensor(item, hub.coordinator))
-        new_devices.append(InverterOutputVoltageSensor(item, hub.coordinator))
-        new_devices.append(InverterOutputPowerSensor(item, hub.coordinator))
-        new_devices.append(InverterOutEnergySensor(item, hub.coordinator))
-        new_devices.append(InverterInEnergySensor(item, hub.coordinator))
-        new_devices.append(InverterDCTemperatureSensor(item, hub.coordinator))
-        new_devices.append(InverterInvTemperatureSensor(item, hub.coordinator))
-        new_devices.append(InverterLoadSensor(item, hub.coordinator))
-        # inverter config sensors
-        new_devices.append(InverterChargePrioritySensor(item, hub.coordinator))
-        new_devices.append(InverterConfigBTUtilityChargeSensor(item, hub.coordinator))
-        new_devices.append(InverterConfigBTTotalChargeSensor(item, hub.coordinator))
-        new_devices.append(InverterConfigBTCutoffSensor(item, hub.coordinator))
-        new_devices.append(InverterNominalOutPowerSensor(item, hub.coordinator))
-        new_devices.append(InverterRatedBatteryVoltageSensor(item, hub.coordinator))
-        new_devices.append(InverterComebackUtilityVoltageSensor(item, hub.coordinator))
-        new_devices.append(InverterComebackBatteryVoltageSensor(item, hub.coordinator))
-        if 'raw_sensors' not in config_entry.options:
-            continue
-        if not config_entry.options.get('raw_sensors', False):
-            continue
-        if hub.coordinator.data is None or item.inverter_id not in hub.coordinator.data:
-            continue
-        data = hub.coordinator.data[item.inverter_id]
-        allowed_units = [
-            'kW',
-            'W',
-            'A',
-            'V',
-            'HZ',
-            '%',
+        sensor_classes = [
+            # Grid sensors
+            GridInputVoltageSensor,
+            GridInputFrequencySensor,
+            GridInputPowerSensor,
+            # PV sensors
+            PVPowerSensor,
+            PVPowerTotalSensor,  # deprecated
+            PVEnergySensor,
+            PVVoltageSensor,
+            # Battery sensors
+            BatteryVoltageSensor,
+            BatteryChargeSensor,
+            BatteryChargePowerSensor,
+            BatteryDischargeSensor,
+            BatteryDischargePowerSensor,
+            BatteryInEnergySensor,
+            BatteryOutEnergySensor,
+            BatteryCapacitySensor,
+            # Inverter sensors
+            InverterStatusSensor,
+            InverterOutputPrioritySensor,
+            InverterOutputVoltageSensor,
+            InverterOutputPowerSensor,
+            InverterOutEnergySensor,
+            InverterInEnergySensor,
+            InverterDCTemperatureSensor,
+            InverterInvTemperatureSensor,
+            InverterLoadSensor,
+            # Inverter config sensors
+            InverterChargePrioritySensor,
+            InverterConfigBTUtilityChargeSensor,
+            InverterConfigBTTotalChargeSensor,
+            InverterConfigBTCutoffSensor,
+            InverterNominalOutPowerSensor,
+            InverterRatedBatteryVoltageSensor,
+            InverterComebackUtilityVoltageSensor,
+            InverterComebackBatteryVoltageSensor,
         ]
-        for parameter in data['pars']['parameter']:
-            if 'unit' not in parameter:
-                continue
-            if parameter['unit'] not in allowed_units:
-                continue
-            new_devices.append(InverterDynamicSensor(item, hub.coordinator, parameter, DessSensorSource.PARS_ES))
-        keys = data['last_data']['pars'].keys()
-        for key in keys:
-            for parameter in data['last_data']['pars'][key]:
-                if 'unit' not in parameter:
-                    continue
-                if parameter['unit'] not in allowed_units:
-                    continue
-                new_devices.append(InverterDynamicSensor(item, hub.coordinator, {
-                    'par': parameter['id'],
-                    'name': parameter['par'],
-                    'val': parameter['val'],
-                    'unit': parameter['unit'],
-                }, DessSensorSource.SP_LAST_DATA))
+
+        for sensor_cls in sensor_classes:
+            new_devices.append(sensor_cls(item, hub.coordinator))
+        if (
+                config_entry.options.get('raw_sensors', False)
+                and hub.coordinator.data is not None
+                and item.inverter_id in hub.coordinator.data
+        ):
+            data = hub.coordinator.data[item.inverter_id]
+            allowed_units = {'kW', 'W', 'A', 'V', 'HZ', '%'}
+
+            def is_valid_parameter(param):
+                return 'unit' in param and param['unit'] in allowed_units
+
+            for parameter in filter(is_valid_parameter, data.get('pars', {}).get('parameter', [])):
+                new_devices.append(InverterDynamicSensor(
+                    item, hub.coordinator, parameter, DessSensorSource.PARS_ES
+                ))
+
+            for key, params in data.get('last_data', {}).get('pars', {}).items():
+                for parameter in filter(is_valid_parameter, params):
+                    new_devices.append(InverterDynamicSensor(
+                        item,
+                        hub.coordinator,
+                        {
+                            'par': parameter['id'],
+                            'name': parameter['par'],
+                            'val': parameter['val'],
+                            'unit': parameter['unit'],
+                        },
+                        DessSensorSource.SP_LAST_DATA,
+                    ))
     if new_devices:
         async_add_entities(new_devices)
 
 
-# This base class shows the common properties and methods for a sensor as used in this
-# example. See each sensor for further details about properties and methods that
-# have been overridden.
+
 class SensorBase(CoordinatorEntity, SensorEntity):
-    # should_poll = True
 
     def __init__(self, inverter_device: InverterDevice, coordinator: MyCoordinator):
         """Initialize the sensor."""
         super().__init__(coordinator)
         self._inverter_device = inverter_device
 
-    # To link this entity to the cover device, this property must return an
-    # identifiers value matching that used in the cover, but no other information such
-    # as name. If name is returned, this entity will then also become a device in the
-    # HA UI.
     @property
     def device_info(self) -> DeviceInfo:
         """Information about this entity/device."""
@@ -147,8 +140,6 @@ class SensorBase(CoordinatorEntity, SensorEntity):
             "manufacturer": 'ESS'
         }
 
-    # This property is important to let HA know if this entity is online or not.
-    # If an entity is offline (return False), the UI will refelect this.
     @property
     def available(self) -> bool:
         """Return True if inverter_device and hub is available."""
@@ -157,16 +148,6 @@ class SensorBase(CoordinatorEntity, SensorEntity):
     @property
     def data(self):
         return self.coordinator.data[self._inverter_device.inverter_id]
-
-    # async def async_added_to_hass(self):
-    #     """Run when this Entity has been added to HA."""
-    #     # Sensors should also register callbacks to HA when their state changes
-    #     self._inverter_device.register_callback(self.async_write_ha_state)
-    #
-    # async def async_will_remove_from_hass(self):
-    #     """Entity being removed from hass."""
-    #     # The opposite of async_added_to_hass. Remove any registered call backs here.
-    #     self._inverter_device.remove_callback(self.async_write_ha_state)
 
 
 class MyEnergySensor(RestoreSensor, SensorBase):
