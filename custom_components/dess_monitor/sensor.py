@@ -95,12 +95,16 @@ async def async_setup_entry(
             '%',
         ]
         for parameter in data['pars']['parameter']:
+            if 'unit' not in parameter:
+                continue
             if parameter['unit'] not in allowed_units:
                 continue
             new_devices.append(InverterDynamicSensor(item, hub.coordinator, parameter, DessSensorSource.PARS_ES))
         keys = data['last_data']['pars'].keys()
         for key in keys:
             for parameter in data['last_data']['pars'][key]:
+                if 'unit' not in parameter:
+                    continue
                 if parameter['unit'] not in allowed_units:
                     continue
                 new_devices.append(InverterDynamicSensor(item, hub.coordinator, {
