@@ -13,7 +13,7 @@ from .api.helpers import *
 _LOGGER = logging.getLogger(__name__)
 
 
-class MyCoordinator(DataUpdateCoordinator):
+class DirectCoordinator(DataUpdateCoordinator):
     """My custom coordinator."""
     devices = []
     auth = None
@@ -25,10 +25,10 @@ class MyCoordinator(DataUpdateCoordinator):
             hass,
             _LOGGER,
             # Name of the data. For logging purposes.
-            name="My sensor",
+            name="Direct request sensor",
             config_entry=config_entry,
             # Polling interval. Will only be polled if there are subscribers.
-            update_interval=timedelta(seconds=60),
+            update_interval=timedelta(seconds=30),
             # Set always_update to `False` if the data returned from the
             # api can be compared via `__eq__` to avoid duplicate updates
             # being dispatched to listeners
@@ -50,7 +50,7 @@ class MyCoordinator(DataUpdateCoordinator):
         await self.create_auth()
 
         self.devices = await self.get_active_devices()
-        print('coordinator setup devices count: ', len(self.devices))
+        print('direct coordinator setup devices count: ', len(self.devices))
 
         # token = self.auth['token']
         # secret = self.auth['secret']
@@ -82,8 +82,8 @@ class MyCoordinator(DataUpdateCoordinator):
         active_devices = [device for device in devices if device['status'] != 1]
         selected_devices = [device for device in active_devices if
                             str(device['pn']) in self.config_entry.options["devices"]] if (
-                    "devices" in self.config_entry.options and len(
-                self.config_entry.options["devices"]) > 0) else active_devices
+                "devices" in self.config_entry.options and len(
+            self.config_entry.options["devices"]) > 0) else active_devices
         return selected_devices
 
     async def _async_update_data(self):
@@ -95,12 +95,14 @@ class MyCoordinator(DataUpdateCoordinator):
         try:
             # Note: asyncio.TimeoutError and aiohttp.ClientError are already
             # handled by the data update coordinator.
-            async with async_timeout.timeout(120):
+            async with async_timeout.timeout(30):
                 # Grab active context variables to limit data required to be fetched from API
                 # Note: using context is not required if there is no need or ability to limit
                 # data retrieved from API.
                 # listening_idx = set(self.async_contexts())
-                print('coordinator update data devices')
+                if self.config_entry.options.get('direct_request_protocol', False) is not True:
+                    return None
+                print('direct coordinator update data devices')
 
                 await self.check_auth()
                 self.devices = await self.get_active_devices()
@@ -108,35 +110,13 @@ class MyCoordinator(DataUpdateCoordinator):
                 token = self.auth['token']
                 secret = self.auth['secret']
 
-                last_data_tasks = [get_device_last_data(token, secret, device) for device in self.devices]
+                last_data_tasks = [get_direct_data(token, secret, device, 'QPIGS') for device in self.devices]
                 last_results = await asyncio.gather(*last_data_tasks)
-
-                web_query_device_energy_flow_es = [get_device_energy_flow(token, secret, device) for device in
-                                                   self.devices]
-                web_query_device_energy_flow_es_results = await asyncio.gather(*web_query_device_energy_flow_es)
-
-                query_device_pars_es = [get_device_pars(token, secret, device) for device in self.devices]
-                query_device_pars_es_results = await asyncio.gather(*query_device_pars_es)
-
-                query_device_ctrl_fields = [get_device_ctrl_fields(token, secret, device) for device in
-                                            self.devices]
-                query_device_ctrl_fields_results = await asyncio.gather(*query_device_ctrl_fields)
-
-                query_device_output_priority = [get_inverter_output_priority(token, secret, device) for device in
-                                                self.devices]
-                query_device_output_priority_results = await asyncio.gather(*query_device_output_priority)
 
                 data_map = {}
                 for i, device in enumerate(self.devices):
                     data_map[device['pn']] = {
-                        'last_data': last_results[i],
-                        'energy_flow': web_query_device_energy_flow_es_results[i],
-                        'pars': query_device_pars_es_results[i],
-                        'device': self.devices[i],
-                        'ctrl_fields': query_device_ctrl_fields_results[i]['field'],
-                        'device_extra': {
-                            'output_priority': query_device_output_priority_results[i]
-                        }
+                        'direct_data': last_results[i],
                     }
                 return data_map
                 # return

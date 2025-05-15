@@ -1,4 +1,5 @@
-from custom_components.dess_monitor.api import set_ctrl_device_param, get_device_ctrl_value
+from custom_components.dess_monitor.api import set_ctrl_device_param, get_device_ctrl_value, send_device_direct_command
+from custom_components.dess_monitor.api.direct_commands import decode_direct_response, get_command_hex
 
 
 def resolve_battery_charging_current(data, device_data):
@@ -348,3 +349,8 @@ async def get_inverter_output_priority(token: str, secret: str, device_data):
     if result['val'] not in map_param_value:
         return None
     return map_param_value[result['val']]
+
+
+async def get_direct_data(token: str, secret: str, device_data, cmd_name):
+    result = await send_device_direct_command(token, secret, device_data, get_command_hex(cmd_name))
+    return decode_direct_response(cmd_name, result['dat'])

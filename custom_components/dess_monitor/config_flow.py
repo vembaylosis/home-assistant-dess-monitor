@@ -25,11 +25,15 @@ _LOGGER = logging.getLogger(__name__)
 # quite work as documented and always gave me the "Lokalise key references" string
 # (in square brackets), rather than the actual translated value. I did not attempt to
 # figure this out or look further into it.
+
+
+
 DATA_SCHEMA = vol.Schema({
     vol.Required("username"): str,
     vol.Required("password"): str,
     vol.Optional("dynamic_settings", default=False): bool,
     vol.Optional("raw_sensors", default=False): bool,
+    vol.Optional("direct_request_protocol", default=False): bool,
 })
 
 
@@ -90,6 +94,7 @@ class ConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
     def __init__(self):
         self._devices = []
         self._dynamic_settings = False
+        self._direct_request_protocol = False
         self._raw_sensors = False
         self._username = None
         self._password_hash = None
@@ -111,6 +116,7 @@ class ConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
                 self._username = user_input['username']
                 self._password_hash = info['password_hash']
                 self._dynamic_settings = user_input['dynamic_settings']
+                self._direct_request_protocol = user_input['direct_request_protocol']
                 self._raw_sensors = user_input['raw_sensors']
                 devices = await get_devices(info['auth']['token'], info['auth']['secret'])
                 active_devices = [device for device in devices if device['status'] != 1]
@@ -148,6 +154,7 @@ class ConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
                     'username': self._username,
                     'password_hash': self._password_hash,
                     'dynamic_settings': self._dynamic_settings,
+                    'direct_request_protocol': self._direct_request_protocol,
                     'devices': devices,
                     'raw_sensors': self._raw_sensors,
                 })
@@ -160,7 +167,7 @@ class ConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
                         "multiple": True,
                         "options": [
                             {
-                                "value": str(device['uid']),
+                                "value": str(device['pn']),
                                 "label": f'{device['devalias']}; pn: {device['pn']}; devcode: {device['devcode']}'
                             }
                             for device in self._devices
@@ -200,12 +207,12 @@ class OptionsFlow(config_entries.OptionsFlow):
                 vol.Required(
                     "devices",
                     default=self._config_entry.options.get('devices',
-                                                           list(map(lambda x: str(x['uid']), active_devices)))
+                                                           list(map(lambda x: str(x['pn']), active_devices)))
                 ): selector({
                     "select": {
                         "multiple": True,
                         "options": [
-                            {"value": str(device['uid']),
+                            {"value": str(device['pn']),
                              "label": f'{device['devalias']}; pn: {device['pn']}; devcode: {device['devcode']}'}
                             for device in self._devices
                         ]
@@ -215,6 +222,8 @@ class OptionsFlow(config_entries.OptionsFlow):
                              default=self._config_entry.options.get('dynamic_settings', False)): bool,
                 vol.Optional("raw_sensors",
                              default=self._config_entry.options.get('raw_sensors', False)): bool,
+                vol.Optional("direct_request_protocol",
+                             default=self._config_entry.options.get('direct_request_protocol', False)): bool,
             })
         )
 

@@ -17,6 +17,8 @@ from homeassistant.helpers.update_coordinator import CoordinatorEntity
 from . import HubConfigEntry, MyCoordinator
 from .api.helpers import *
 from .const import DOMAIN
+from custom_components.dess_monitor.sensors.direct_sensor import DirectPVPowerSensor, DirectBatteryVoltageSensor, \
+    DirectPVVoltageSensor, DirectInverterOutputPowerSensor
 from .hub import InverterDevice
 
 
@@ -113,9 +115,22 @@ async def async_setup_entry(
                         },
                         DessSensorSource.SP_LAST_DATA,
                     ))
+        if (
+                config_entry.options.get('direct_request_protocol', False) is True
+                and hub.direct_coordinator.data is not None
+                and item.inverter_id in hub.direct_coordinator.data
+        ):
+            direct_sensors = [
+                DirectPVPowerSensor,
+                DirectBatteryVoltageSensor,
+                DirectPVVoltageSensor,
+                DirectInverterOutputPowerSensor,
+            ]
+
+            for sensor_cls in direct_sensors:
+                new_devices.append(sensor_cls(item, hub.direct_coordinator))
     if new_devices:
         async_add_entities(new_devices)
-
 
 
 class SensorBase(CoordinatorEntity, SensorEntity):
