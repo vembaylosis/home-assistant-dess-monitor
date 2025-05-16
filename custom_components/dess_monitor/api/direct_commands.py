@@ -38,18 +38,47 @@ def decode_qpigs(ascii_str):
     return dict(zip(fields, values))
 
 
+def decode_qpigs2(ascii_str):
+    values = ascii_str.split()
+    fields = [
+        "pv_current",
+        "pv_voltage",
+        "pv_daily_energy"
+    ]
+    return dict(zip(fields, values))
+
+
 def decode_qpiri(ascii_str):
     values = ascii_str.split()
     fields = [
-        "Rated Grid Voltage", "Rated Input Current", "Rated AC Output Voltage",
-        "Rated Output Frequency", "Rated Output Current", "Rated Output Apparent Power",
-        "Rated Output Active Power", "Rated Battery Voltage", "Low Battery to AC Bypass Voltage",
-        "Shut Down Battery Voltage", "Bulk Charging Voltage", "Float Charging Voltage",
-        "Battery Type", "Max Utility Charging Current", "Max Charging Current",
-        "AC Input Voltage Range", "Output Source Priority", "Charger Source Priority",
-        "Parallel Max Number", "Reserved UU", "Reserved V", "Parallel Mode",
-        "High Battery Voltage to Battery Mode", "Solar Work Condition in Parallel",
-        "Solar Max Charging Power Auto Adjust", "Rated Battery Capacity", "Reserved b", "Reserved ccc"
+        "rated_grid_voltage",
+        "rated_input_current",
+        "rated_ac_output_voltage",
+        "rated_output_frequency",
+        "rated_output_current",
+        "rated_output_apparent_power",
+        "rated_output_active_power",
+        "rated_battery_voltage",
+        "low_battery_to_ac_bypass_voltage",
+        "shut_down_battery_voltage",
+        "bulk_charging_voltage",
+        "float_charging_voltage",
+        "battery_type",
+        "max_utility_charging_current",
+        "max_charging_current",
+        "ac_input_voltage_range",
+        "output_source_priority",
+        "charger_source_priority",
+        "parallel_max_number",
+        "reserved_uu",
+        "reserved_v",
+        "parallel_mode",
+        "high_battery_voltage_to_battery_mode",
+        "solar_work_condition_in_parallel",
+        "solar_max_charging_power_auto_adjust",
+        "rated_battery_capacity",
+        "reserved_b",
+        "reserved_ccc"
     ]
     return dict(zip(fields, values))
 
@@ -100,6 +129,8 @@ def decode_direct_response(command: str, hex_input: str) -> dict:
     match command.upper():
         case "QPIGS":
             return decode_qpigs(ascii_str)
+        case "QPIGS2":
+            return decode_qpigs2(ascii_str)
         case "QPIRI":
             return decode_qpiri(ascii_str)
         case "QMOD":
@@ -148,8 +179,8 @@ def get_command_name_by_hex(hex_string: str) -> str:
     return "Unknown HEX command"
 
 # # Пример вызова:
-# hex_data = "28 32 33 34 2E 32 20 35 30 2E 30 20 32 33 30 2E 31 20 35 30 2E 30 20 30 31 36 31 20 30 31 30 39 20 30 30 34 20 34 33 30 20 32 37 2E 32 30 20 30 30 33 20 30 38 32 20 30 30 33 30 20 30 30 30 33 20 33 31 37 2E 37 20 30 30 2E 30 30 20 30 30 30 30 30 20 30 30 30 31 30 31 31 30 20 30 30 20 30 30 20 30 30 31 38 31 20 31 31 30 76 26 0D"
-# decoded = decode_direct_response('QPIGS', hex_data)
+# hex_data = "28 30 39 2E 37 20 32 35 37 2E 31 20 30 32 35 31 37 20 0E 98 0D"
+# decoded = decode_direct_response('QPIGS2', hex_data)
 #
 # for key, value in decoded.items():
 #     print(f"{key:35} : {value}")

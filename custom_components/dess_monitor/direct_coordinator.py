@@ -110,14 +110,17 @@ class DirectCoordinator(DataUpdateCoordinator):
                 token = self.auth['token']
                 secret = self.auth['secret']
 
-                last_data_tasks = [get_direct_data(token, secret, device, 'QPIGS') for device in self.devices]
-                last_results = await asyncio.gather(*last_data_tasks)
-
-                data_map = {}
-                for i, device in enumerate(self.devices):
-                    data_map[device['pn']] = {
-                        'direct_data': last_results[i],
+                async def fetch_device_data(device):
+                    qpigs = await get_direct_data(token, secret, device, 'QPIGS')
+                    qpigs2 = await get_direct_data(token, secret, device, 'QPIGS2')
+                    qpiri = await get_direct_data(token, secret, device, 'QPIRI')
+                    return device['pn'], {
+                        'direct_data': qpigs,
+                        'direct_data_2': qpigs2,
+                        'direct_rated_data': qpiri
                     }
+
+                data_map = dict(await asyncio.gather(*map(fetch_device_data, self.devices)))
                 return data_map
                 # return
         except TimeoutError as err:

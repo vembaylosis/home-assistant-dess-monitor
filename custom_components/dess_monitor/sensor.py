@@ -18,7 +18,7 @@ from . import HubConfigEntry, MyCoordinator
 from .api.helpers import *
 from .const import DOMAIN
 from custom_components.dess_monitor.sensors.direct_sensor import DirectPVPowerSensor, DirectBatteryVoltageSensor, \
-    DirectPVVoltageSensor, DirectInverterOutputPowerSensor
+    DirectPVVoltageSensor, DirectInverterOutputPowerSensor, DirectInverterTemperatureSensor
 from .hub import InverterDevice
 
 
@@ -125,6 +125,7 @@ async def async_setup_entry(
                 DirectBatteryVoltageSensor,
                 DirectPVVoltageSensor,
                 DirectInverterOutputPowerSensor,
+                DirectInverterTemperatureSensor,
             ]
 
             for sensor_cls in direct_sensors:
