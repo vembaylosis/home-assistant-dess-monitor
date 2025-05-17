@@ -29,6 +29,7 @@ async def async_get_device_diagnostics(
             'devcode': device.hw_version,
             'data': async_redact_data(entry.runtime_data.coordinator.data[device.model], [
                 'devalias', 'pn', 'sn', 'collalias', 'usr'
-            ])
+            ]),
+            'direct_data': entry.runtime_data.direct_coordinator.data[device.model]
         }
     }

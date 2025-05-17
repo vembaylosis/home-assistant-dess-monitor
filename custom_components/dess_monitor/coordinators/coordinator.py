@@ -7,8 +7,8 @@ from homeassistant.helpers.update_coordinator import (
     DataUpdateCoordinator,
 )
 
-from .api import *
-from .api.helpers import *
+from custom_components.dess_monitor.api import *
+from custom_components.dess_monitor.api.helpers import *
 
 _LOGGER = logging.getLogger(__name__)
 
@@ -89,7 +89,7 @@ class MyCoordinator(DataUpdateCoordinator):
         devices = await get_devices(self.auth['token'], self.auth['secret'])
         active_devices = [device for device in devices if device['status'] != 1]
         selected_devices = [device for device in active_devices if
-                            str(device['uid']) in self.config_entry.options["devices"]] if (
+                            str(device['pn']) in self.config_entry.options["devices"]] if (
                 "devices" in self.config_entry.options and len(
             self.config_entry.options["devices"]) > 0) else active_devices
         return selected_devices
