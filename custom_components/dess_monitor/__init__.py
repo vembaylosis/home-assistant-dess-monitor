@@ -7,8 +7,8 @@ from homeassistant.const import Platform
 from homeassistant.core import HomeAssistant
 
 from . import hub
-from .coordinator import MyCoordinator
-from .direct_coordinator import DirectCoordinator
+from custom_components.dess_monitor.coordinators.coordinator import MyCoordinator
+from custom_components.dess_monitor.coordinators.direct_coordinator import DirectCoordinator
 
 # List of platforms to support. There should be a matching .py file for each,
 # eg <cover.py> and <sensor.py>

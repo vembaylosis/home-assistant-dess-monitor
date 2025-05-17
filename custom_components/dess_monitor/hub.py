@@ -2,8 +2,8 @@ from __future__ import annotations
 
 from homeassistant.core import HomeAssistant
 
-from .direct_coordinator import DirectCoordinator
-from .coordinator import MyCoordinator
+from custom_components.dess_monitor.coordinators.direct_coordinator import DirectCoordinator
+from custom_components.dess_monitor.coordinators.coordinator import MyCoordinator
 
 
 class Hub:

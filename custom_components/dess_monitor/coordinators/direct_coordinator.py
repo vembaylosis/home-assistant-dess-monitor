@@ -7,8 +7,8 @@ from homeassistant.helpers.update_coordinator import (
     DataUpdateCoordinator,
 )
 
-from .api import *
-from .api.helpers import *
+from custom_components.dess_monitor.api import *
+from custom_components.dess_monitor.api.helpers import *
 
 _LOGGER = logging.getLogger(__name__)
 
@@ -28,7 +28,7 @@ class DirectCoordinator(DataUpdateCoordinator):
             name="Direct request sensor",
             config_entry=config_entry,
             # Polling interval. Will only be polled if there are subscribers.
-            update_interval=timedelta(seconds=30),
+            update_interval=timedelta(seconds=10),
             # Set always_update to `False` if the data returned from the
             # api can be compared via `__eq__` to avoid duplicate updates
             # being dispatched to listeners
@@ -80,26 +80,22 @@ class DirectCoordinator(DataUpdateCoordinator):
     async def get_active_devices(self):
         devices = await get_devices(self.auth['token'], self.auth['secret'])
         active_devices = [device for device in devices if device['status'] != 1]
-        selected_devices = [device for device in active_devices if
-                            str(device['pn']) in self.config_entry.options["devices"]] if (
-                "devices" in self.config_entry.options and len(
-            self.config_entry.options["devices"]) > 0) else active_devices
+        devices_filter = self.config_entry.options.get("devices", [])
+
+        if devices_filter:
+            selected_devices = [
+                device for device in active_devices
+                if str(device.get("pn")) in devices_filter
+            ]
+        else:
+            selected_devices = active_devices
         return selected_devices
 
     async def _async_update_data(self):
-        """Fetch data from API endpoint.
-
-        This is the place to pre-process the data to lookup tables
-        so entities can quickly look up their data.
-        """
         try:
             # Note: asyncio.TimeoutError and aiohttp.ClientError are already
             # handled by the data update coordinator.
             async with async_timeout.timeout(30):
-                # Grab active context variables to limit data required to be fetched from API
-                # Note: using context is not required if there is no need or ability to limit
-                # data retrieved from API.
-                # listening_idx = set(self.async_contexts())
                 if self.config_entry.options.get('direct_request_protocol', False) is not True:
                     return None
                 print('direct coordinator update data devices')
@@ -115,9 +111,9 @@ class DirectCoordinator(DataUpdateCoordinator):
                     qpigs2 = await get_direct_data(token, secret, device, 'QPIGS2')
                     qpiri = await get_direct_data(token, secret, device, 'QPIRI')
                     return device['pn'], {
-                        'direct_data': qpigs,
-                        'direct_data_2': qpigs2,
-                        'direct_rated_data': qpiri
+                        'qpigs': qpigs,
+                        'qpigs2': qpigs2,
+                        'qpiri': qpiri
                     }
 
                 data_map = dict(await asyncio.gather(*map(fetch_device_data, self.devices)))
