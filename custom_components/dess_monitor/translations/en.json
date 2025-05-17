@@ -13,8 +13,9 @@
         "data": {
           "password": "Password",
           "username": "Login",
-          "dynamic_settings": "Device settings",
-          "raw_sensors": "Device raw sensors"
+          "dynamic_settings": "Device settings (allow to read & set equipment settings)",
+          "direct_request_protocol": "Direct data request protocol (provide near-realtime direct data reading from equipment",
+          "raw_sensors": "Device raw sensors (provide all available by wifi plug sensor fields)"
         }
       },
       "select_devices": {
@@ -30,8 +31,8 @@
         "title": "Update hub parameters",
         "data": {
           "devices": "Available devices",
-          "dynamic_settings": "Dynamic settings",
-          "raw_sensors": "Raw sensors"
+          "dynamic_settings": "Device settings (allow to read & set equipment settings)",
+          "raw_sensors": "Device raw sensors (provide all available by wifi plug sensor fields)"
         }
       }
     }
