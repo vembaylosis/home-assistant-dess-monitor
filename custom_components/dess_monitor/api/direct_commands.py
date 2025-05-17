@@ -1,3 +1,6 @@
+from enum import Enum
+
+
 def decode_ascii_response(hex_string):
     hex_values = hex_string.strip().split()
     byte_values = bytes(int(b, 16) for b in hex_values)
@@ -48,6 +51,68 @@ def decode_qpigs2(ascii_str):
     return dict(zip(fields, values))
 
 
+class BatteryType(Enum):
+    AGM = '0'
+    Flooded = '1'
+    UserDefined = '2'
+
+
+class ACInputVoltageRange(Enum):
+    Appliance = '0'
+    UPS = '1'
+
+
+class OutputSourcePriority(Enum):
+    UtilityFirst = '0'  # сеть
+    SolarFirst = '1'
+    SBU = '2'  # Solar → Battery → Utility
+    BatteryOnly = '4'
+    UtilityOnly = '5'
+    SolarAndUtility = '6'
+    Smart = '7'  # может быть задан в некоторых прошивках
+
+
+class ChargerSourcePriority(Enum):
+    UtilityFirst = '0'
+    SolarFirst = '1'
+    SolarAndUtility = '2'
+    OnlySolar = '3'
+
+
+class ParallelMode(Enum):
+    Master = '0'
+    Slave = '1'
+    Standalone = '2'
+
+
+class OperatingMode(Enum):
+    PowerOn = 'P'               # Power On — The inverter is powered on and operational
+    Standby = 'S'               # Standby — The inverter is in standby mode (e.g., no active load)
+    Line = 'L'                  # Line (Bypass) — Operating from utility/grid power, possibly bypassing the inverter
+    Battery = 'B'               # Battery Inverter Mode — Operating from battery via inverter
+    ShutdownApproaching = 'D'  # Shutdown Approaching — Critical state, preparing to shut down
+    Fault = 'F'                 # Fault — Error condition; inverter is in fault mode
+
+def transform_qpiri_value(index, value):
+    try:
+        match index:
+            case 12:
+                return BatteryType(value).name
+            case 15:
+                return ACInputVoltageRange(value).name
+            case 16:
+                return OutputSourcePriority(value).name
+            case 17:
+                return ChargerSourcePriority(value).name
+            case 21:
+                return ParallelMode(value).name
+            case _:
+                return value
+    except ValueError:
+        return value
+
+
+
 def decode_qpiri(ascii_str):
     values = ascii_str.split()
     fields = [
@@ -80,20 +145,20 @@ def decode_qpiri(ascii_str):
         "reserved_b",
         "reserved_ccc"
     ]
-    return dict(zip(fields, values))
+
+    return {
+        field: transform_qpiri_value(i, value)
+        for i, (field, value) in enumerate(zip(fields, values))
+    }
 
 
 def decode_qmod(ascii_str):
-    mode = ascii_str.strip()[0]  # Only first character
-    modes = {
-        'P': "Power On",
-        'S': "Standby",
-        'L': "Line (Bypass)",
-        'B': "Battery Inverter Mode",
-        'D': "Shutdown Approaching",
-        'F': "Fault"
-    }
-    return {"Operating Mode": modes.get(mode, "Unknown")}
+    mode_code = ascii_str.strip()[0]
+    try:
+        mode = OperatingMode(mode_code)
+    except ValueError:
+        mode = "Unknown"
+    return {"operating_mode": mode}
 
 
 def decode_qmn(ascii_str):
@@ -115,9 +180,15 @@ def decode_qvfw(ascii_str):
 def decode_qbeqi(ascii_str):
     values = ascii_str.split()
     fields = [
-        "Equalization Function", "Equalization Time (min)", "Interval Days",
-        "Max Charging Current", "Float Voltage", "Reserved 1",
-        "Equalization Timeout (min)", "Immediate Activation Flag", "Elapsed Time (min)"
+        "equalization_function",
+        "equalization_time",  # (min)
+        "interval_days",
+        "max_charging_current",
+        "float_voltage",
+        "reserved_1",
+        "equalization_timeout",  # (min)
+        "immediate_activation_flag",
+        "elapsed_time"  # (min)
     ]
     return dict(zip(fields, values))
 
@@ -125,6 +196,9 @@ def decode_qbeqi(ascii_str):
 # Тестовый универсальный декодер
 def decode_direct_response(command: str, hex_input: str) -> dict:
     ascii_str = decode_ascii_response(hex_input)
+
+    if ascii_str.startswith("NAK") or "NAK" in ascii_str:
+        return {"error": "NAK response received. Command not accepted."}
 
     match command.upper():
         case "QPIGS":

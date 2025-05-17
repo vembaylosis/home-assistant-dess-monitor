@@ -1,11 +1,13 @@
 from homeassistant.components.sensor import SensorEntity, SensorDeviceClass
 from homeassistant.const import UnitOfElectricPotential, UnitOfPower, UnitOfTemperature, EntityCategory, \
-    UnitOfElectricCurrent
+    UnitOfElectricCurrent, UnitOfFrequency, UnitOfApparentPower
 from homeassistant.core import callback
 from homeassistant.helpers.device_registry import DeviceInfo
 from homeassistant.helpers.update_coordinator import CoordinatorEntity
 
 from custom_components.dess_monitor import DirectCoordinator
+from custom_components.dess_monitor.api.direct_commands import ParallelMode, ChargerSourcePriority, \
+    OutputSourcePriority, ACInputVoltageRange, BatteryType
 from custom_components.dess_monitor.const import DOMAIN
 from custom_components.dess_monitor.hub import InverterDevice
 
@@ -113,6 +115,76 @@ class DirectCurrentSensorBase(DirectTypedSensorBase):
     _attr_native_unit_of_measurement = UnitOfElectricCurrent.AMPERE
     _attr_suggested_display_precision = 0
     _sensor_option_display_precision = 0
+
+
+class DirectApparentPowerSensorBase(DirectTypedSensorBase):
+    device_class = SensorDeviceClass.APPARENT_POWER
+    _attr_unit_of_measurement = UnitOfApparentPower.VOLT_AMPERE
+    _attr_native_unit_of_measurement = UnitOfApparentPower.VOLT_AMPERE
+    _attr_suggested_display_precision = 0
+    _sensor_option_display_precision = 0
+
+
+class DirectBatteryCapacitySensorBase(DirectTypedSensorBase):
+    _attr_unit_of_measurement = "Ah"
+    _attr_native_unit_of_measurement = "Ah"
+    _attr_suggested_display_precision = 0
+    _sensor_option_display_precision = 0
+
+
+class DirectFrequencySensorBase(DirectTypedSensorBase):
+    device_class = SensorDeviceClass.FREQUENCY
+    _attr_unit_of_measurement = UnitOfFrequency.HERTZ
+    _attr_native_unit_of_measurement = UnitOfFrequency.HERTZ
+    _attr_suggested_display_precision = 1
+    _sensor_option_display_precision = 1
+
+
+class DirectEnumSensorBase(DirectTypedSensorBase):
+    """Базовый класс для сенсоров с перечислимым значением (ENUM)."""
+
+    enum_class = None  # Подкласс обязан переопределить
+    device_class = SensorDeviceClass.ENUM
+    _attr_device_class = SensorDeviceClass.ENUM
+
+    @property
+    def options(self) -> list[str]:
+        return [e.name for e in self.enum_class] if self.enum_class else []
+
+    @callback
+    def _handle_coordinator_update(self) -> None:
+        section = self.data.get(self.data_section, {})
+        raw_value = section.get(self.data_key)
+
+        if raw_value is not None:
+            try:
+                self._attr_native_value = raw_value
+            except ValueError:
+                self._attr_native_value = None
+        else:
+            self._attr_native_value = None
+
+        self.async_write_ha_state()
+
+
+class BatteryTypeSensor(DirectEnumSensorBase):
+    enum_class = BatteryType
+
+
+class ACInputVoltageRangeSensor(DirectEnumSensorBase):
+    enum_class = ACInputVoltageRange
+
+
+class OutputSourcePrioritySensor(DirectEnumSensorBase):
+    enum_class = OutputSourcePriority
+
+
+class ChargerSourcePrioritySensor(DirectEnumSensorBase):
+    enum_class = ChargerSourcePriority
+
+
+class ParallelModeSensor(DirectEnumSensorBase):
+    enum_class = ParallelMode
 
 
 class DirectPVPowerSensor(DirectWattSensorBase):
@@ -310,6 +382,56 @@ class DirectSCCBatteryVoltageSensor(DirectVoltageSensorBase):
     def __init__(self, inverter_device, coordinator):
         super().__init__(inverter_device, coordinator, "qpigs", "scc_battery_voltage", "scc_batt_voltage",
                          "SCC Battery Voltage")
+
+
+class DirectDiagnosticSensorBase(DirectTypedSensorBase):
+    _attr_entity_category = EntityCategory.DIAGNOSTIC
+
+
+QPIRI_SENSOR_MAPPING = {
+    "rated_grid_voltage": (DirectVoltageSensorBase, "Rated Grid Voltage"),
+    "rated_input_current": (DirectCurrentSensorBase, "Rated Input Current"),
+    "rated_ac_output_voltage": (DirectVoltageSensorBase, "Rated AC Output Voltage"),
+    "rated_output_frequency": (DirectFrequencySensorBase, "Rated Output Frequency"),
+    "rated_output_current": (DirectCurrentSensorBase, "Rated Output Current"),
+    "rated_output_apparent_power": (DirectApparentPowerSensorBase, "Rated Output Apparent Power"),
+    "rated_output_active_power": (DirectWattSensorBase, "Rated Output Active Power"),
+    "rated_battery_voltage": (DirectVoltageSensorBase, "Rated Battery Voltage"),
+    "low_battery_to_ac_bypass_voltage": (DirectVoltageSensorBase, "Low Battery to AC Bypass Voltage"),
+    "shut_down_battery_voltage": (DirectVoltageSensorBase, "Shut Down Battery Voltage"),
+    "bulk_charging_voltage": (DirectVoltageSensorBase, "Bulk Charging Voltage"),
+    "float_charging_voltage": (DirectVoltageSensorBase, "Float Charging Voltage"),
+    "battery_type": (BatteryTypeSensor, "Battery Type"),
+    "max_utility_charging_current": (DirectCurrentSensorBase, "Max Utility Charging Current"),
+    "max_charging_current": (DirectCurrentSensorBase, "Max Charging Current"),
+    "ac_input_voltage_range": (ACInputVoltageRangeSensor, "AC Input Voltage Range"),
+    "output_source_priority": (OutputSourcePrioritySensor, "Output Source Priority"),
+    "charger_source_priority": (ChargerSourcePrioritySensor, "Charger Source Priority"),
+    "parallel_max_number": (DirectDiagnosticSensorBase, "Parallel Max Number"),
+    "reserved_uu": (DirectDiagnosticSensorBase, "Reserved UU"),
+    "reserved_v": (DirectDiagnosticSensorBase, "Reserved V"),
+    "parallel_mode": (ParallelModeSensor, "Parallel Mode"),
+    "high_battery_voltage_to_battery_mode": (DirectVoltageSensorBase, "High Battery Voltage to Battery Mode"),
+    "solar_work_condition_in_parallel": (DirectDiagnosticSensorBase, "Solar Work Condition In Parallel"),
+    "solar_max_charging_power_auto_adjust": (DirectDiagnosticSensorBase, "Solar Max Charging Power Auto Adjust"),
+    "rated_battery_capacity": (DirectBatteryCapacitySensorBase, "Rated Battery Capacity"),
+    "reserved_b": (DirectDiagnosticSensorBase, "Reserved B"),
+    "reserved_ccc": (DirectDiagnosticSensorBase, "Reserved CCC")
+}
+
+
+def generate_qpiri_sensors(inverter_device, coordinator):
+    return [
+        sensor_class(
+            inverter_device=inverter_device,
+            coordinator=coordinator,
+            data_section="qpiri",
+            data_key=data_key,
+            name_suffix=name_suffix,
+        )
+        for data_key, (sensor_class, name_suffix) in QPIRI_SENSOR_MAPPING.items()
+    ]
+
 
 DIRECT_SENSORS = [
     DirectPVPowerSensor,
