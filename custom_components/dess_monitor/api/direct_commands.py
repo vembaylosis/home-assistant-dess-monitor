@@ -91,12 +91,13 @@ class ParallelMode(Enum):
 
 
 class OperatingMode(Enum):
-    PowerOn = 'P'               # Power On — The inverter is powered on and operational
-    Standby = 'S'               # Standby — The inverter is in standby mode (e.g., no active load)
-    Line = 'L'                  # Line (Bypass) — Operating from utility/grid power, possibly bypassing the inverter
-    Battery = 'B'               # Battery Inverter Mode — Operating from battery via inverter
+    PowerOn = 'P'  # Power On — The inverter is powered on and operational
+    Standby = 'S'  # Standby — The inverter is in standby mode (e.g., no active load)
+    Line = 'L'  # Line (Bypass) — Operating from utility/grid power, possibly bypassing the inverter
+    Battery = 'B'  # Battery Inverter Mode — Operating from battery via inverter
     ShutdownApproaching = 'D'  # Shutdown Approaching — Critical state, preparing to shut down
-    Fault = 'F'                 # Fault — Error condition; inverter is in fault mode
+    Fault = 'F'  # Fault — Error condition; inverter is in fault mode
+
 
 def transform_qpiri_value(index, value):
     try:
@@ -115,7 +116,6 @@ def transform_qpiri_value(index, value):
                 return value
     except ValueError:
         return value
-
 
 
 def decode_qpiri(ascii_str):
@@ -200,6 +200,8 @@ def decode_qbeqi(ascii_str):
 
 # Тестовый универсальный декодер
 def decode_direct_response(command: str, hex_input: str) -> dict:
+    if hex_input == 'null':
+        return {"error": "null response received. Command not accepted."}
     ascii_str = decode_ascii_response(hex_input)
 
     if ascii_str.startswith("NAK") or "NAK" in ascii_str:
@@ -258,7 +260,7 @@ def get_command_name_by_hex(hex_string: str) -> str:
     return "Unknown HEX command"
 
 # # Пример вызова:
-# hex_data = "28 30 39 2E 37 20 32 35 37 2E 31 20 30 32 35 31 37 20 0E 98 0D"
+# hex_data = "28 32 33 31 2E 38 20 35 30 2E 30 20 32 33 31 2E 38 20 35 30 2E 30 20 30 31 31 35 20 30 30 31 36 20 30 30 32 20 34 30 38 20 32 37 2E 30 30 20 30 31 32 20 30 39 35 20 30 30 33 30 20 30 30 30 30 20 30 30 30 2E 30 20 30 30 2E 30 30 20 30 30 30 30 30 20 30 30 30 31 30 31 30 31 20 30 30 20 30 30 20 30 30 30 30 31 20 30 31 30 9E CA 0D"
 # decoded = decode_direct_response('QPIGS2', hex_data)
 #
 # for key, value in decoded.items():
