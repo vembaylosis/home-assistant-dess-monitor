@@ -55,6 +55,11 @@ class BatteryType(Enum):
     AGM = '0'
     Flooded = '1'
     UserDefined = '2'
+    LIB = '3'
+    LIC = '4'
+    RESERVED = '5'
+    RESERVED_1 = '6'
+    RESERVED_2 = '7'
 
 
 class ACInputVoltageRange(Enum):
