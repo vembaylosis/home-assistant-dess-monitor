@@ -1,17 +1,17 @@
 {
-  "domain": "dess_monitor",
-  "name": "DESS Monitor",
   "codeowners": [
     "@Antoxa1081"
   ],
   "config_flow": true,
   "dependencies": [],
   "documentation": "https://github.com/Antoxa1081/home-assistant-dess-monitor/blob/main/README.md",
-  "issue_tracker": "https://github.com/Antoxa1081/home-assistant-dess-monitor/issues",
+  "domain": "dess_monitor",
   "homekit": {},
   "iot_class": "local_push",
+  "issue_tracker": "https://github.com/Antoxa1081/home-assistant-dess-monitor/issues",
+  "name": "DESS Monitor",
   "requirements": [],
   "ssdp": [],
-  "version": "0.2.7",
+  "version": "0.2.8",
   "zeroconf": []
 }
