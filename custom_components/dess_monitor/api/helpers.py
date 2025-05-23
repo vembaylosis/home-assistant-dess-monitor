@@ -5,7 +5,6 @@ from custom_components.dess_monitor.api.commands.direct_commands import decode_d
 from custom_components.dess_monitor.api.resolvers.data_keys_map import SENSOR_KEYS_MAP
 
 
-
 def resolve_param(data, where, case_insensitive=False, find_all=False, default=None, root_keys=None):
     """
     Recursively searches for elements in a nested structure that satisfy 'where'.
@@ -89,7 +88,6 @@ def resolve_param(data, where, case_insensitive=False, find_all=False, default=N
         return found if found else default
     else:
         return found[0] if found else default
-
 
 
 def safe_float(val: Optional[str], default: float = 0.0) -> float:

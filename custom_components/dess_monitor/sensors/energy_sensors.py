@@ -48,7 +48,8 @@ class MyEnergySensor(RestoreSensor, SensorBase):
 
 
 class FunctionBasedEnergySensor(MyEnergySensor):
-    def __init__(self, inverter_device: InverterDevice, coordinator: MainCoordinator, unique_suffix: str, name_suffix: str, resolve_function):
+    def __init__(self, inverter_device: InverterDevice, coordinator: MainCoordinator, unique_suffix: str,
+                 name_suffix: str, resolve_function):
         super().__init__(inverter_device, coordinator)
         self._attr_unique_id = f"{self._inverter_device.inverter_id}_{unique_suffix}"
         self._attr_name = f"{self._inverter_device.name} {name_suffix}"
@@ -66,6 +67,7 @@ class PVEnergySensor(FunctionBasedEnergySensor):
     def __init__(self, inverter_device: InverterDevice, coordinator: MainCoordinator):
         super().__init__(inverter_device, coordinator, "pv_in_energy", "PV In Energy", resolve_pv_power)
 
+
 class PV2EnergySensor(FunctionBasedEnergySensor):
     def __init__(self, inverter_device: InverterDevice, coordinator: MainCoordinator):
         super().__init__(inverter_device, coordinator, "pv2_in_energy", "PV2 In Energy", resolve_pv2_power)
@@ -73,19 +75,23 @@ class PV2EnergySensor(FunctionBasedEnergySensor):
 
 class BatteryInEnergySensor(FunctionBasedEnergySensor):
     def __init__(self, inverter_device: InverterDevice, coordinator: MainCoordinator):
-        super().__init__(inverter_device, coordinator, "battery_in_energy", "Battery In Energy", resolve_battery_charging_power)
+        super().__init__(inverter_device, coordinator, "battery_in_energy", "Battery In Energy",
+                         resolve_battery_charging_power)
 
 
 class BatteryOutEnergySensor(FunctionBasedEnergySensor):
     def __init__(self, inverter_device: InverterDevice, coordinator: MainCoordinator):
-        super().__init__(inverter_device, coordinator, "battery_out_energy", "Battery Out Energy", resolve_battery_discharge_power)
+        super().__init__(inverter_device, coordinator, "battery_out_energy", "Battery Out Energy",
+                         resolve_battery_discharge_power)
 
 
 class InverterOutEnergySensor(FunctionBasedEnergySensor):
     def __init__(self, inverter_device: InverterDevice, coordinator: MainCoordinator):
-        super().__init__(inverter_device, coordinator, "inverter_out_energy", "Inverter Out Energy", resolve_active_load_power)
+        super().__init__(inverter_device, coordinator, "inverter_out_energy", "Inverter Out Energy",
+                         resolve_active_load_power)
 
 
 class InverterInEnergySensor(FunctionBasedEnergySensor):
     def __init__(self, inverter_device: InverterDevice, coordinator: MainCoordinator):
-        super().__init__(inverter_device, coordinator, "inverter_in_energy", "Inverter In Energy", resolve_grid_in_power)
+        super().__init__(inverter_device, coordinator, "inverter_in_energy", "Inverter In Energy",
+                         resolve_grid_in_power)

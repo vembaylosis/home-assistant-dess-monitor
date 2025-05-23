@@ -31,6 +31,6 @@ async def async_get_device_diagnostics(
                 'devalias', 'pn', 'sn', 'collalias', 'usr'
             ]),
             'direct_data': (entry.runtime_data.direct_coordinator.data or {}) \
-                       .get(device.model, {})
+                .get(device.model, {})
         }
     }

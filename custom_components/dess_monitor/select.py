@@ -9,8 +9,8 @@ from homeassistant.helpers.update_coordinator import CoordinatorEntity
 
 from custom_components.dess_monitor import MainCoordinator, HubConfigEntry
 from custom_components.dess_monitor.api import set_ctrl_device_param, get_device_ctrl_value
-from custom_components.dess_monitor.api.resolvers.data_resolvers import resolve_output_priority
 from custom_components.dess_monitor.api.helpers import set_inverter_output_priority
+from custom_components.dess_monitor.api.resolvers.data_resolvers import resolve_output_priority
 from custom_components.dess_monitor.const import DOMAIN
 from custom_components.dess_monitor.hub import InverterDevice
 from custom_components.dess_monitor.util import resolve_number_with_unit
@@ -40,6 +40,7 @@ async def async_setup_entry(
             continue
         # print(config_entry.data)
         if config_entry.options.get('dynamic_settings', False) is True:
+            print("Setting up dynamic_settings")
             async_add_entities(list(
                 map(
                     lambda field_data: InverterDynamicSettingSelect(item, coordinator, field_data),

@@ -27,7 +27,6 @@ _LOGGER = logging.getLogger(__name__)
 # figure this out or look further into it.
 
 
-
 DATA_SCHEMA = vol.Schema({
     vol.Required("username"): str,
     vol.Required("password"): str,

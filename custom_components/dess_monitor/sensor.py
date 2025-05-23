@@ -5,9 +5,9 @@ from homeassistant.helpers.entity_platform import AddEntitiesCallback
 
 from custom_components.dess_monitor.sensors.direct_sensor import DIRECT_SENSORS, generate_qpiri_sensors
 from . import HubConfigEntry
-from .sensors.init_sensors import *
-from .sensors.energy_sensors import *
 from .sensors.dynamic_sensor import *
+from .sensors.energy_sensors import *
+from .sensors.init_sensors import *
 
 
 async def async_setup_entry(
