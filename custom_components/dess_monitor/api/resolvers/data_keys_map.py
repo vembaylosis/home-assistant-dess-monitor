@@ -28,11 +28,12 @@ SENSOR_KEYS_MAP: Dict[str, list[str]] = {
         "output_power",
         "bc_load_active_power",
         "Output Active Power",
+        "bt_load_active_power_sole",
+        "AC Output Active Power",
     ],
     "active_load_percentage": [
-        "bc_eybond_read_37",
-        "bc_battery_capacity",
-        "bc_load_percent",
+        "bt_output_load_percent",
+        "Output Load Percent",
     ],
     "output_priority": [
         "bc_output_source_priority",
@@ -53,10 +54,16 @@ SENSOR_KEYS_MAP: Dict[str, list[str]] = {
         "gd_grid_frequency",
         "gd_ac_input_frequency",
         "Grid frequency",
+        "bt_grid_frequency",
+        "Grid Frequency",
+        "bt_grid_AC_frequency",
+        "AC Output Frequency",
     ],
     "pv_power": [
         "pv_output_power",
         "Total PV Power",
+        "bt_input_power",
+        "PV1 Charging Power",
     ],
     "pv_voltage": [
         "pv_input_voltage",
@@ -65,15 +72,36 @@ SENSOR_KEYS_MAP: Dict[str, list[str]] = {
         "PV Input Voltage",
         "eybond_read_43",
         "PV1 Voltage",
+        "bt_voltage_1",
+        "PV1 Input Voltage",
+    ],
+    "pv_input_current": [
+        "pv_input_current",
+        "PV1 Input Current",
+    ],
+    "pv2_power": [
+        "bt_input_power_1",
+        "PV2 Charging power",
+    ],
+    "pv2_voltage": [
+        "bt_voltage_2",
+        "PV2 Input voltage",
+    ],
+    "pv2_input_current": [
+        "pv_input_current2",
+        "PV2 Input current",
     ],
     "grid_input_voltage": [
         "gd_ac_input_voltage",
         "gd_grid_voltage",
         "Grid Voltage",
+        "bt_grid_voltage",
     ],
     "grid_output_voltage": [
         "bc_output_voltage",
         "Output Voltage",
+        "bt_ac_output_voltage",
+        "AC Output Voltage",
     ],
     "dc_module_temperature": [
         "DC Module Termperature",
@@ -102,4 +130,8 @@ SENSOR_KEYS_MAP: Dict[str, list[str]] = {
     "bt_comeback_battery_voltage": [
         "bt_battery_mode_voltage",
     ],
+    "apparent_load_power": [
+        "bt_ac_output_apparent_power",
+        "AC Output Apparent Power",
+    ]
 }

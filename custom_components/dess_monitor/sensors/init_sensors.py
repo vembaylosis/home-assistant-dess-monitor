@@ -1,5 +1,6 @@
 from homeassistant.components.sensor import SensorEntity, SensorDeviceClass, SensorStateClass
-from homeassistant.const import *
+from homeassistant.const import UnitOfElectricPotential, UnitOfPower, PERCENTAGE, UnitOfFrequency, \
+    UnitOfElectricCurrent, EntityCategory, UnitOfTemperature, UnitOfEnergy
 from homeassistant.core import callback
 from homeassistant.helpers.device_registry import DeviceInfo
 from homeassistant.helpers.update_coordinator import CoordinatorEntity
@@ -101,6 +102,18 @@ class PVPowerSensor(ValueResolvingSensor):
 class PVVoltageSensor(ValueResolvingSensor):
     def __init__(self, inverter_device, coordinator):
         super().__init__(inverter_device, coordinator, "PV Voltage", "pv_voltage", resolve_pv_voltage,
+                         SensorDeviceClass.VOLTAGE, UnitOfElectricPotential.VOLT)
+
+
+class PV2PowerSensor(ValueResolvingSensor):
+    def __init__(self, inverter_device, coordinator):
+        super().__init__(inverter_device, coordinator, "PV2 Power", "pv2_power", resolve_pv2_power,
+                         SensorDeviceClass.POWER, UnitOfPower.WATT)
+
+
+class PV2VoltageSensor(ValueResolvingSensor):
+    def __init__(self, inverter_device, coordinator):
+        super().__init__(inverter_device, coordinator, "PV2 Voltage", "pv2_voltage", resolve_pv2_voltage,
                          SensorDeviceClass.VOLTAGE, UnitOfElectricPotential.VOLT)
 
 

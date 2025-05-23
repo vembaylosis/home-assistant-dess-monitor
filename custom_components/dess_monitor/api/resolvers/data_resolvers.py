@@ -78,9 +78,15 @@ def resolve_grid_frequency(data, device_data):
 def resolve_pv_power(data, device_data):
     return safe_float(get_sensor_value_simple("pv_power", data, device_data))
 
+def resolve_pv2_power(data, device_data):
+    return safe_float(get_sensor_value_simple("pv2_power", data, device_data))
+
 
 def resolve_pv_voltage(data, device_data):
     return get_sensor_value_simple("pv_voltage", data, device_data)
+
+def resolve_pv2_voltage(data, device_data):
+    return get_sensor_value_simple("pv2_voltage", data, device_data)
 
 
 def resolve_grid_input_voltage(data, device_data):

@@ -43,9 +43,12 @@ def create_static_sensors(item, coordinator):
 
         # PV sensors
         PVPowerSensor,
+        PV2PowerSensor,
         PVPowerTotalSensor,  # deprecated
         PVEnergySensor,
+        PV2EnergySensor,
         PVVoltageSensor,
+        PV2VoltageSensor,
 
         # Battery sensors
         BatteryVoltageSensor,

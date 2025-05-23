@@ -66,6 +66,10 @@ class PVEnergySensor(FunctionBasedEnergySensor):
     def __init__(self, inverter_device: InverterDevice, coordinator: MainCoordinator):
         super().__init__(inverter_device, coordinator, "pv_in_energy", "PV In Energy", resolve_pv_power)
 
+class PV2EnergySensor(FunctionBasedEnergySensor):
+    def __init__(self, inverter_device: InverterDevice, coordinator: MainCoordinator):
+        super().__init__(inverter_device, coordinator, "pv2_in_energy", "PV2 In Energy", resolve_pv2_power)
+
 
 class BatteryInEnergySensor(FunctionBasedEnergySensor):
     def __init__(self, inverter_device: InverterDevice, coordinator: MainCoordinator):
