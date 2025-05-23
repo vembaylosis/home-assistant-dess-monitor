@@ -7,7 +7,7 @@ from homeassistant.helpers.device_registry import DeviceInfo
 from homeassistant.helpers.entity_platform import AddEntitiesCallback
 from homeassistant.helpers.update_coordinator import CoordinatorEntity
 
-from custom_components.dess_monitor import MyCoordinator, HubConfigEntry
+from custom_components.dess_monitor import MainCoordinator, HubConfigEntry
 from custom_components.dess_monitor.api import set_ctrl_device_param, get_device_ctrl_value
 from custom_components.dess_monitor.const import DOMAIN
 from custom_components.dess_monitor.hub import InverterDevice
@@ -49,7 +49,7 @@ async def async_setup_entry(
 class NumberBase(CoordinatorEntity, NumberEntity):
     # should_poll = True
 
-    def __init__(self, inverter_device: InverterDevice, coordinator: MyCoordinator):
+    def __init__(self, inverter_device: InverterDevice, coordinator: MainCoordinator):
         """Initialize the sensor."""
         super().__init__(coordinator)
         self._inverter_device = inverter_device
@@ -102,7 +102,7 @@ class InverterDynamicSettingNumber(NumberBase):
 
     # _attr_entity_category = EntityCategory.CONFIG
 
-    def __init__(self, inverter_device: InverterDevice, coordinator: MyCoordinator, field_data):
+    def __init__(self, inverter_device: InverterDevice, coordinator: MainCoordinator, field_data):
         super().__init__(inverter_device, coordinator)
         self._last_updated = None
         self._service_param_id = field_data['id']

@@ -7,7 +7,7 @@ from homeassistant.const import Platform
 from homeassistant.core import HomeAssistant
 
 from . import hub
-from custom_components.dess_monitor.coordinators.coordinator import MyCoordinator
+from custom_components.dess_monitor.coordinators.coordinator import MainCoordinator
 from custom_components.dess_monitor.coordinators.direct_coordinator import DirectCoordinator
 
 # List of platforms to support. There should be a matching .py file for each,
@@ -21,7 +21,7 @@ async def async_setup_entry(hass: HomeAssistant, entry: HubConfigEntry) -> bool:
     # Store an instance of the "connecting" class that does the work of speaking
     # with your actual devices.
     await _migrate_data_to_options(hass, entry)
-    my_coordinator = MyCoordinator(hass, entry)
+    my_coordinator = MainCoordinator(hass, entry)
     direct_coordinator_ctx = DirectCoordinator(hass, entry)
     await asyncio.gather(
         my_coordinator.async_config_entry_first_refresh(),

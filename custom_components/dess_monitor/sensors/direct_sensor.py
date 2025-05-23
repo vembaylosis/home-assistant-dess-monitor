@@ -6,7 +6,7 @@ from homeassistant.helpers.device_registry import DeviceInfo
 from homeassistant.helpers.update_coordinator import CoordinatorEntity
 
 from custom_components.dess_monitor import DirectCoordinator
-from custom_components.dess_monitor.api.direct_commands import ParallelMode, ChargerSourcePriority, \
+from custom_components.dess_monitor.api.commands.direct_commands import ParallelMode, ChargerSourcePriority, \
     OutputSourcePriority, ACInputVoltageRange, BatteryType
 from custom_components.dess_monitor.const import DOMAIN
 from custom_components.dess_monitor.hub import InverterDevice

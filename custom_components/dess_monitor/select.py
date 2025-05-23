@@ -7,9 +7,10 @@ from homeassistant.helpers.device_registry import DeviceInfo
 from homeassistant.helpers.entity_platform import AddEntitiesCallback
 from homeassistant.helpers.update_coordinator import CoordinatorEntity
 
-from custom_components.dess_monitor import MyCoordinator, HubConfigEntry
+from custom_components.dess_monitor import MainCoordinator, HubConfigEntry
 from custom_components.dess_monitor.api import set_ctrl_device_param, get_device_ctrl_value
-from custom_components.dess_monitor.api.helpers import resolve_output_priority, set_inverter_output_priority
+from custom_components.dess_monitor.api.resolvers.data_resolvers import resolve_output_priority
+from custom_components.dess_monitor.api.helpers import set_inverter_output_priority
 from custom_components.dess_monitor.const import DOMAIN
 from custom_components.dess_monitor.hub import InverterDevice
 from custom_components.dess_monitor.util import resolve_number_with_unit
@@ -53,7 +54,7 @@ async def async_setup_entry(
 class SelectBase(CoordinatorEntity, SelectEntity):
     # should_poll = True
 
-    def __init__(self, inverter_device: InverterDevice, coordinator: MyCoordinator):
+    def __init__(self, inverter_device: InverterDevice, coordinator: MainCoordinator):
         """Initialize the sensor."""
         super().__init__(coordinator)
         self._inverter_device = inverter_device
@@ -102,7 +103,7 @@ class SelectBase(CoordinatorEntity, SelectEntity):
 class InverterOutputPrioritySelect(SelectBase):
     _attr_current_option = None
 
-    def __init__(self, inverter_device: InverterDevice, coordinator: MyCoordinator):
+    def __init__(self, inverter_device: InverterDevice, coordinator: MainCoordinator):
         super().__init__(inverter_device, coordinator)
         self._attr_unique_id = f"{self._inverter_device.inverter_id}_output_priority"
         self._attr_name = f"{self._inverter_device.name} Output Priority"
@@ -140,7 +141,7 @@ class InverterDynamicSettingSelect(SelectBase):
     should_poll = True
     _attr_entity_category = EntityCategory.CONFIG
 
-    def __init__(self, inverter_device: InverterDevice, coordinator: MyCoordinator, field_data):
+    def __init__(self, inverter_device: InverterDevice, coordinator: MainCoordinator, field_data):
         super().__init__(inverter_device, coordinator)
         self._field_data = field_data
         self._service_param_id = field_data['id']

@@ -1,32 +1,28 @@
-from datetime import datetime
-from enum import Enum
-
-from homeassistant.components.sensor import SensorEntity, RestoreSensor, SensorDeviceClass, SensorStateClass
-from homeassistant.const import EntityCategory, UnitOfEnergy, UnitOfPower, UnitOfElectricPotential, UnitOfFrequency, \
-    UnitOfElectricCurrent, UnitOfTemperature, PERCENTAGE
+from homeassistant.components.sensor import SensorEntity, SensorDeviceClass, SensorStateClass
+from homeassistant.const import *
 from homeassistant.core import callback
 from homeassistant.helpers.device_registry import DeviceInfo
 from homeassistant.helpers.update_coordinator import CoordinatorEntity
 
-from custom_components.dess_monitor.api.helpers import *
+from custom_components.dess_monitor.api.resolvers.data_resolvers import *
 from custom_components.dess_monitor.const import DOMAIN
-from custom_components.dess_monitor.coordinators.coordinator import MyCoordinator
+from custom_components.dess_monitor.coordinators.coordinator import MainCoordinator
 from custom_components.dess_monitor.hub import InverterDevice
 
 
 class SensorBase(CoordinatorEntity, SensorEntity):
-
-    def __init__(self, inverter_device: InverterDevice, coordinator: MyCoordinator):
-        """Initialize the sensor."""
+    def __init__(
+            self,
+            inverter_device: InverterDevice,
+            coordinator: MainCoordinator
+    ):
         super().__init__(coordinator)
         self._inverter_device = inverter_device
 
     @property
     def device_info(self) -> DeviceInfo:
-        """Information about this entity/device."""
         return {
             "identifiers": {(DOMAIN, self._inverter_device.inverter_id)},
-            # If desired, the name for the device could be different to the entity
             "name": self._inverter_device.name,
             "sw_version": self._inverter_device.firmware_version,
             "model": self._inverter_device.device_data['pn'],
@@ -38,900 +34,235 @@ class SensorBase(CoordinatorEntity, SensorEntity):
 
     @property
     def available(self) -> bool:
-        """Return True if inverter_device and hub is available."""
-        return self._inverter_device.online and self._inverter_device.hub.online
+        return (
+                self._inverter_device.online and
+                self._inverter_device.hub.online
+        )
 
     @property
     def data(self):
         return self.coordinator.data[self._inverter_device.inverter_id]
 
 
-class MyEnergySensor(RestoreSensor, SensorBase):
-    _attr_device_class = SensorDeviceClass.ENERGY
-    _attr_state_class = SensorStateClass.TOTAL_INCREASING
-    _attr_entity_category = EntityCategory.DIAGNOSTIC
-    _attr_suggested_display_precision = 0
-    _sensor_option_display_precision = 0
-    _prev_value = None
-    _prev_value_timestamp = datetime.now()
-    _attr_unit_of_measurement = UnitOfEnergy.WATT_HOUR
-    _attr_native_unit_of_measurement = UnitOfEnergy.WATT_HOUR
-    _is_restored_value = False
+class ValueResolvingSensor(SensorBase):
+    def __init__(
+            self,
+            inverter_device: InverterDevice,
+            coordinator: MainCoordinator,
+            name_suffix: str,
+            unique_suffix: str,
+            resolve_fn,
+            device_class: SensorDeviceClass,
+            unit,
+            precision: int = 0,
+            entity_category=None,
+            state_class=None
+    ):
+        super().__init__(
+            inverter_device=inverter_device,
+            coordinator=coordinator
+        )
+        self._attr_name = f"{inverter_device.name} {name_suffix}"
+        self._attr_unique_id = f"{inverter_device.inverter_id}_{unique_suffix}"
+        self._resolve_fn = resolve_fn
+        self._attr_device_class = device_class
+        self._attr_native_unit_of_measurement = unit
+        self._attr_unit_of_measurement = unit
+        self._attr_suggested_display_precision = precision
+        self._sensor_option_display_precision = precision
 
-    def __init__(self, inverter_device: InverterDevice, coordinator: MyCoordinator):
-        """Initialize the sensor."""
-        super().__init__(inverter_device, coordinator)
+        if entity_category is not None:
+            self._attr_entity_category = entity_category
 
-    async def async_added_to_hass(self) -> None:
-        """Handle entity which will be added."""
-
-        if (last_sensor_data := await self.async_get_last_extra_data()) is not None:
-            # print('last_sensor_data', last_sensor_data.as_dict())
-            self._attr_native_value = (last_sensor_data.as_dict())['native_value']
-        else:
-            self._attr_native_value = 0
-        self._is_restored_value = True
-        await super().async_added_to_hass()
-
-    @property
-    def available(self) -> bool:
-        """Return True if inverter_device and hub is available."""
-        return self._inverter_device.online and self._inverter_device.hub.online and self._is_restored_value
-
-
-class BatteryVoltageSensor(SensorBase):
-    """Representation of a Sensor."""
-
-    # The class of this device. Note the value should come from the homeassistant.const
-    # module. More information on the available devices classes can be seen here:
-    # https://developers.home-assistant.io/docs/core/entity/sensor
-    device_class = SensorDeviceClass.VOLTAGE
-
-    # The unit of measurement for this entity. As it's a DEVICE_CLASS_BATTERY, this
-    # should be PERCENTAGE. A number of units are supported by HA, for some
-    # examples, see:
-    # https://developers.home-assistant.io/docs/core/entity/sensor#available-device-classes
-    _attr_unit_of_measurement = UnitOfElectricPotential.VOLT
-    _attr_native_unit_of_measurement = UnitOfElectricPotential.VOLT
-    _attr_suggested_display_precision = 1
-    _sensor_option_display_precision = 1
-
-    def __init__(self, inverter_device: InverterDevice, coordinator: MyCoordinator):
-        """Initialize the sensor."""
-        super().__init__(inverter_device, coordinator)
-
-        # As per the sensor, this must be a unique value within this domain. This is done
-        # by using the device ID, and appending "_battery"
-        # self._attr_native_value = None
-        self._attr_unique_id = f"{self._inverter_device.inverter_id}_battery"
-
-        # The name of the entity
-        self._attr_name = f"{self._inverter_device.name} Battery Voltage"
-
-        # self._state = 0
+        if state_class is not None:
+            self._attr_state_class = state_class
 
     @callback
     def _handle_coordinator_update(self) -> None:
-        """Handle updated data from the coordinator."""
-        self._attr_native_value = resolve_battery_voltage(self.data, self._inverter_device.device_data)
+        self._attr_native_value = self._resolve_fn(
+            self.data,
+            self._inverter_device.device_data
+        )
         self.async_write_ha_state()
 
 
-class PVPowerSensor(SensorBase):
-    """Representation of a Sensor."""
-
-    # The class of this device. Note the value should come from the homeassistant.const
-    # module. More information on the available devices classes can be seen here:
-    # https://developers.home-assistant.io/docs/core/entity/sensor
-    device_class = SensorDeviceClass.POWER
-
-    # The unit of measurement for this entity. As it's a DEVICE_CLASS_BATTERY, this
-    # should be PERCENTAGE. A number of units are supported by HA, for some
-    # examples, see:
-    # https://developers.home-assistant.io/docs/core/entity/sensor#available-device-classes
-    _attr_unit_of_measurement = UnitOfPower.WATT
-    _attr_native_unit_of_measurement = UnitOfPower.WATT
-    _attr_suggested_display_precision = 0
-    _sensor_option_display_precision = 0
-
-    def __init__(self, inverter_device: InverterDevice, coordinator: MyCoordinator):
-        """Initialize the sensor."""
-        super().__init__(inverter_device, coordinator)
-
-        # As per the sensor, this must be a unique value within this domain. This is done
-        # by using the device ID, and appending "_battery"
-        # self._attr_native_value = None
-        self._attr_unique_id = f"{self._inverter_device.inverter_id}_pv_power"
-
-        # The name of the entity
-        self._attr_name = f"{self._inverter_device.name} PV Power"
-
-        # self._state = 0
-
-    @callback
-    def _handle_coordinator_update(self) -> None:
-        """Handle updated data from the coordinator."""
-        data = self.data
-        device_data = self._inverter_device.device_data
-        self._attr_native_value = resolve_pv_power(data, device_data)
-        self.async_write_ha_state()
-
-
-class PVVoltageSensor(SensorBase):
-    """Representation of a Sensor."""
-    device_class = SensorDeviceClass.VOLTAGE
-    _attr_unit_of_measurement = UnitOfElectricPotential.VOLT
-    _attr_native_unit_of_measurement = UnitOfElectricPotential.VOLT
-    _attr_suggested_display_precision = 0
-    _sensor_option_display_precision = 0
-
-    def __init__(self, inverter_device: InverterDevice, coordinator: MyCoordinator):
-        """Initialize the sensor."""
-        super().__init__(inverter_device, coordinator)
-        self._attr_unique_id = f"{self._inverter_device.inverter_id}_pv_voltage"
-        self._attr_name = f"{self._inverter_device.name} PV Voltage"
-
-    @callback
-    def _handle_coordinator_update(self) -> None:
-        """Handle updated data from the coordinator."""
-        data = self.data
-        device_data = self._inverter_device.device_data
-        self._attr_native_value = resolve_pv_voltage(data, device_data)
-        self.async_write_ha_state()
-
-
-class GridInputVoltageSensor(SensorBase):
-    """Representation of a Sensor."""
-    device_class = SensorDeviceClass.VOLTAGE
-    _attr_unit_of_measurement = UnitOfElectricPotential.VOLT
-    _attr_native_unit_of_measurement = UnitOfElectricPotential.VOLT
-    _attr_suggested_display_precision = 0
-    _sensor_option_display_precision = 0
-
-    def __init__(self, inverter_device: InverterDevice, coordinator: MyCoordinator):
-        """Initialize the sensor."""
-        super().__init__(inverter_device, coordinator)
-        self._attr_unique_id = f"{self._inverter_device.inverter_id}_grid_in_voltage"
-        self._attr_name = f"{self._inverter_device.name} Grid In Voltage"
-
-    @callback
-    def _handle_coordinator_update(self) -> None:
-        """Handle updated data from the coordinator."""
-        data = self.data
-        device_data = self._inverter_device.device_data
-        self._attr_native_value = resolve_grid_input_voltage(data, device_data)
-        self.async_write_ha_state()
-
-
-class InverterOutputVoltageSensor(SensorBase):
-    """Representation of a Sensor."""
-    device_class = SensorDeviceClass.VOLTAGE
-    _attr_unit_of_measurement = UnitOfElectricPotential.VOLT
-    _attr_native_unit_of_measurement = UnitOfElectricPotential.VOLT
-    _attr_suggested_display_precision = 0
-    _sensor_option_display_precision = 0
-
-    def __init__(self, inverter_device: InverterDevice, coordinator: MyCoordinator):
-        """Initialize the sensor."""
-        super().__init__(inverter_device, coordinator)
-        self._attr_unique_id = f"{self._inverter_device.inverter_id}_inverter_out_voltage"
-        self._attr_name = f"{self._inverter_device.name} Inverter Out Voltage"
-
-    @callback
-    def _handle_coordinator_update(self) -> None:
-        """Handle updated data from the coordinator."""
-        data = self.data
-        device_data = self._inverter_device.device_data
-        self._attr_native_value = resolve_grid_output_voltage(data, device_data)
-        self.async_write_ha_state()
-
-
-class InverterOutputPowerSensor(SensorBase):
-    """Representation of a Sensor."""
-    device_class = SensorDeviceClass.POWER
-    _attr_unit_of_measurement = UnitOfPower.WATT
-    _attr_native_unit_of_measurement = UnitOfPower.WATT
-    _attr_suggested_display_precision = 0
-    _sensor_option_display_precision = 0
-
-    def __init__(self, inverter_device: InverterDevice, coordinator: MyCoordinator):
-        """Initialize the sensor."""
-        super().__init__(inverter_device, coordinator)
-        self._attr_unique_id = f"{self._inverter_device.inverter_id}_inverter_out_power"
-        self._attr_name = f"{self._inverter_device.name} Inverter Out Power"
-
-    @callback
-    def _handle_coordinator_update(self) -> None:
-        """Handle updated data from the coordinator."""
-        data = self.data
-        device_data = self._inverter_device.device_data
-        self._attr_native_value = resolve_active_load_power(data, device_data)
-        self.async_write_ha_state()
-
-
-class InverterLoadSensor(SensorBase):
-    """Representation of a Sensor."""
-    device_class = SensorDeviceClass.POWER_FACTOR
-    _attr_unit_of_measurement = PERCENTAGE
-    _attr_native_unit_of_measurement = PERCENTAGE
-    _attr_suggested_display_precision = 0
-    _sensor_option_display_precision = 0
-
-    def __init__(self, inverter_device: InverterDevice, coordinator: MyCoordinator):
-        """Initialize the sensor."""
-        super().__init__(inverter_device, coordinator)
-        self._attr_unique_id = f"{self._inverter_device.inverter_id}_inverter_load"
-        self._attr_name = f"{self._inverter_device.name} Inverter Load"
-
-    @callback
-    def _handle_coordinator_update(self) -> None:
-        """Handle updated data from the coordinator."""
-        data = self.data
-        device_data = self._inverter_device.device_data
-        self._attr_native_value = resolve_active_load_percentage(data, device_data)
-        self.async_write_ha_state()
-
-
-class BatteryCapacitySensor(SensorBase):
-    """Representation of a Sensor."""
-    device_class = SensorDeviceClass.BATTERY
-    _attr_unit_of_measurement = PERCENTAGE
-    _attr_native_unit_of_measurement = PERCENTAGE
-    _attr_suggested_display_precision = 0
-    _sensor_option_display_precision = 0
-
-    def __init__(self, inverter_device: InverterDevice, coordinator: MyCoordinator):
-        """Initialize the sensor."""
-        super().__init__(inverter_device, coordinator)
-        self._attr_unique_id = f"{self._inverter_device.inverter_id}_battery_capacity"
-        self._attr_name = f"{self._inverter_device.name} Battery Capacity"
-
-    @callback
-    def _handle_coordinator_update(self) -> None:
-        """Handle updated data from the coordinator."""
-        data = self.data
-        device_data = self._inverter_device.device_data
-        self._attr_native_value = resolve_battery_capacity(data, device_data)
-        self.async_write_ha_state()
-
-
-class GridInputPowerSensor(SensorBase):
-    """Representation of a Sensor."""
-    device_class = SensorDeviceClass.POWER
-    _attr_unit_of_measurement = UnitOfPower.WATT
-    _attr_native_unit_of_measurement = UnitOfPower.WATT
-    _attr_suggested_display_precision = 0
-    _sensor_option_display_precision = 0
-
-    def __init__(self, inverter_device: InverterDevice, coordinator: MyCoordinator):
-        """Initialize the sensor."""
-        super().__init__(inverter_device, coordinator)
-        self._attr_unique_id = f"{self._inverter_device.inverter_id}_grid_in_power"
-        self._attr_name = f"{self._inverter_device.name} Grid In Power"
-
-    @callback
-    def _handle_coordinator_update(self) -> None:
-        """Handle updated data from the coordinator."""
-        data = self.data
-        device_data = self._inverter_device.device_data
-        self._attr_native_value = resolve_grid_in_power(data, device_data)
-        self.async_write_ha_state()
-
-
-class GridInputFrequencySensor(SensorBase):
-    """Representation of a Sensor."""
-    device_class = SensorDeviceClass.FREQUENCY
-    _attr_unit_of_measurement = UnitOfFrequency.HERTZ
-    _attr_native_unit_of_measurement = UnitOfFrequency.HERTZ
-    _attr_entity_category = EntityCategory.DIAGNOSTIC
-    _attr_suggested_display_precision = 2
-    _sensor_option_display_precision = 2
-
-    def __init__(self, inverter_device: InverterDevice, coordinator: MyCoordinator):
-        """Initialize the sensor."""
-        super().__init__(inverter_device, coordinator)
-        self._attr_unique_id = f"{self._inverter_device.inverter_id}_grid_in_frequency"
-        self._attr_name = f"{self._inverter_device.name} Grid In Frequency"
-
-    @callback
-    def _handle_coordinator_update(self) -> None:
-        """Handle updated data from the coordinator."""
-        data = self.data
-        device_data = self._inverter_device.device_data
-        self._attr_native_value = resolve_grid_frequency(data, device_data)
-        self.async_write_ha_state()
-
-
-class BatteryChargeSensor(SensorBase):
-    """Representation of a Sensor."""
-    device_class = SensorDeviceClass.CURRENT
-    _attr_unit_of_measurement = UnitOfElectricCurrent.AMPERE
-    _attr_native_unit_of_measurement = UnitOfElectricCurrent.AMPERE
-    _attr_suggested_display_precision = 1
-    _sensor_option_display_precision = 1
-
-    def __init__(self, inverter_device: InverterDevice, coordinator: MyCoordinator):
-        """Initialize the sensor."""
-        super().__init__(inverter_device, coordinator)
-        self._attr_unique_id = f"{self._inverter_device.inverter_id}_battery_charge_current"
-        self._attr_name = f"{self._inverter_device.name} Battery Charge Current"
-
-    @callback
-    def _handle_coordinator_update(self) -> None:
-        """Handle updated data from the coordinator."""
-
-        data = self.data
-        self._attr_native_value = resolve_battery_charging_current(data, self._inverter_device.device_data)
-        self.async_write_ha_state()
-
-
-class BatteryDischargeSensor(SensorBase):
-    """Representation of a Sensor."""
-    device_class = SensorDeviceClass.CURRENT
-    _attr_unit_of_measurement = UnitOfElectricCurrent.AMPERE
-    _attr_native_unit_of_measurement = UnitOfElectricCurrent.AMPERE
-    _attr_suggested_display_precision = 1
-    _sensor_option_display_precision = 1
-
-    def __init__(self, inverter_device: InverterDevice, coordinator: MyCoordinator):
-        """Initialize the sensor."""
-        super().__init__(inverter_device, coordinator)
-        self._attr_unique_id = f"{self._inverter_device.inverter_id}_battery_discharge_current"
-        self._attr_name = f"{self._inverter_device.name} Battery Discharge Current"
-
-    @callback
-    def _handle_coordinator_update(self) -> None:
-        """Handle updated data from the coordinator."""
-        self._attr_native_value = resolve_battery_discharge_current(self.data, self._inverter_device.device_data)
-        self.async_write_ha_state()
-
-
-class BatteryDischargePowerSensor(SensorBase):
-    """Representation of a Sensor."""
-    device_class = SensorDeviceClass.POWER
-    _attr_unit_of_measurement = UnitOfPower.WATT
-    _attr_native_unit_of_measurement = UnitOfPower.WATT
-    _attr_suggested_display_precision = 0
-    _sensor_option_display_precision = 0
-
-    def __init__(self, inverter_device: InverterDevice, coordinator: MyCoordinator):
-        """Initialize the sensor."""
-        super().__init__(inverter_device, coordinator)
-        self._attr_unique_id = f"{self._inverter_device.inverter_id}_battery_discharge_power"
-        self._attr_name = f"{self._inverter_device.name} Battery Discharge Power"
-
-    @callback
-    def _handle_coordinator_update(self) -> None:
-        """Handle updated data from the coordinator."""
-        data = self.data
-        device_data = self._inverter_device.device_data
-
-        self._attr_native_value = resolve_battery_discharge_power(data, device_data)
-        self.async_write_ha_state()
-
-
-class BatteryChargePowerSensor(SensorBase):
-    """Representation of a Sensor."""
-    device_class = SensorDeviceClass.POWER
-    _attr_unit_of_measurement = UnitOfPower.WATT
-    _attr_native_unit_of_measurement = UnitOfPower.WATT
-    _attr_suggested_display_precision = 0
-    _sensor_option_display_precision = 0
-
-    def __init__(self, inverter_device: InverterDevice, coordinator: MyCoordinator):
-        """Initialize the sensor."""
-        super().__init__(inverter_device, coordinator)
-        self._attr_unique_id = f"{self._inverter_device.inverter_id}_battery_charge_power"
-        self._attr_name = f"{self._inverter_device.name} Battery Charge Power"
-
-    @callback
-    def _handle_coordinator_update(self) -> None:
-        """Handle updated data from the coordinator."""
-        data = self.data
-        device_data = self._inverter_device.device_data
-        self._attr_native_value = resolve_battery_charging_power(data, device_data)
-        self.async_write_ha_state()
-
-
-class PVPowerTotalSensor(SensorBase):
-    """Representation of a Sensor."""
-    device_class = SensorDeviceClass.ENERGY
-    state_class = SensorStateClass.TOTAL
-    _attr_unit_of_measurement = UnitOfEnergy.KILO_WATT_HOUR
-    _attr_native_unit_of_measurement = UnitOfEnergy.KILO_WATT_HOUR
-    _attr_suggested_display_precision = 3
-
-    def __init__(self, inverter_device: InverterDevice, coordinator: MyCoordinator):
-        """Initialize the sensor."""
-        super().__init__(inverter_device, coordinator)
-        self._attr_unique_id = f"{self._inverter_device.inverter_id}_pv_total_energy"
-        self._attr_name = f"{self._inverter_device.name} PV Total Energy"
-
-    @callback
-    def _handle_coordinator_update(self) -> None:
-        """Handle updated data from the coordinator."""
-        self._attr_native_value = self.data['device']['energyTotal']
-        self.async_write_ha_state()
-
-
-class PVEnergySensor(MyEnergySensor):
-    def __init__(self, inverter_device: InverterDevice, coordinator: MyCoordinator):
-        """Initialize the sensor."""
-        super().__init__(inverter_device, coordinator)
-        self._attr_unique_id = f"{self._inverter_device.inverter_id}_pv_in_energy"
-        self._attr_name = f"{self._inverter_device.name} PV In Energy"
-
-    @callback
-    def _handle_coordinator_update(self) -> None:
-        """Handle updated data from the coordinator."""
-        data = self.data
-        device_data = self._inverter_device.device_data
-
-        now = datetime.now()
-        elapsed_seconds = int(now.timestamp() - self._prev_value_timestamp.timestamp())
-        current_value = resolve_pv_power(data, device_data)
-
-        if self._prev_value is not None:
-            self._attr_native_value += (elapsed_seconds / 3600) * (self._prev_value + current_value) / 2
-        self._prev_value = current_value
-        self._prev_value_timestamp = now
-        self.async_write_ha_state()
-
-
-class InverterStatusSensor(SensorBase):
-    """Representation of a Sensor."""
-    device_class = SensorDeviceClass.ENUM
-    options = ['NORMAL', 'OFFLINE', 'FAULT', 'STANDBY', 'WARNING']
-    _attr_entity_category = EntityCategory.DIAGNOSTIC
-
-    def __init__(self, inverter_device: InverterDevice, coordinator: MyCoordinator):
-        """Initialize the sensor."""
-        super().__init__(inverter_device, coordinator)
-        self._attr_unique_id = f"{self._inverter_device.inverter_id}_status"
-        self._attr_name = f"{self._inverter_device.name} Status"
-
-    @callback
-    def _handle_coordinator_update(self) -> None:
-        """Handle updated data from the coordinator."""
-
-        self._attr_native_value = self.options[
-            self.data['device']['status']]
-        self.async_write_ha_state()
-
-
-class InverterConfigBTUtilityChargeSensor(SensorBase):
-    """Representation of a Sensor."""
-    _attr_entity_category = EntityCategory.DIAGNOSTIC
-    device_class = SensorDeviceClass.CURRENT
-    _attr_unit_of_measurement = UnitOfElectricCurrent.AMPERE
-    _attr_native_unit_of_measurement = UnitOfElectricCurrent.AMPERE
-
-    def __init__(self, inverter_device: InverterDevice, coordinator: MyCoordinator):
-        """Initialize the sensor."""
-        super().__init__(inverter_device, coordinator)
-        self._attr_unique_id = f"{self._inverter_device.inverter_id}_config_bt_utility_charge_current"
-        self._attr_name = f"{self._inverter_device.name} Battery Utility Charge Current"
-
-    @callback
-    def _handle_coordinator_update(self) -> None:
-        """Handle updated data from the coordinator."""
-
-        self._attr_native_value = \
-            next((x for x in self.data['last_data']['pars']['bt_'] if
-                  x['id'] == 'bt_utility_charge'), {'val': None})['val']
-        self.async_write_ha_state()
-
-
-class InverterConfigBTTotalChargeSensor(SensorBase):
-    """Representation of a Sensor."""
-    _attr_entity_category = EntityCategory.DIAGNOSTIC
-    device_class = SensorDeviceClass.CURRENT
-    _attr_unit_of_measurement = UnitOfElectricCurrent.AMPERE
-    _attr_native_unit_of_measurement = UnitOfElectricCurrent.AMPERE
-
-    def __init__(self, inverter_device: InverterDevice, coordinator: MyCoordinator):
-        """Initialize the sensor."""
-        super().__init__(inverter_device, coordinator)
-        self._attr_unique_id = f"{self._inverter_device.inverter_id}_config_bt_total_charge_current"
-        self._attr_name = f"{self._inverter_device.name} Battery Total Charge Current"
-
-    @callback
-    def _handle_coordinator_update(self) -> None:
-        """Handle updated data from the coordinator."""
-
-        self._attr_native_value = \
-            next((x for x in self.data['last_data']['pars']['bt_'] if
-                  x['id'] == 'bt_total_charge_current'), {'val': None})['val']
-        self.async_write_ha_state()
-
-
-class InverterConfigBTCutoffSensor(SensorBase):
-    """Representation of a Sensor."""
-    _attr_entity_category = EntityCategory.DIAGNOSTIC
-    device_class = SensorDeviceClass.VOLTAGE
-    _attr_unit_of_measurement = UnitOfElectricPotential.VOLT
-    _attr_native_unit_of_measurement = UnitOfElectricPotential.VOLT
-
-    def __init__(self, inverter_device: InverterDevice, coordinator: MyCoordinator):
-        """Initialize the sensor."""
-        super().__init__(inverter_device, coordinator)
-        self._attr_unique_id = f"{self._inverter_device.inverter_id}_config_bt_cutoff_voltage"
-        self._attr_name = f"{self._inverter_device.name} Battery Cutoff Voltage"
-
-    @callback
-    def _handle_coordinator_update(self) -> None:
-        """Handle updated data from the coordinator."""
-
-        self._attr_native_value = \
-            next((x for x in self.data['last_data']['pars']['bt_'] if
-                  x['id'] == 'bt_battery_cut_off_voltage'), {'val': None})['val']
-        self.async_write_ha_state()
-
-
-class InverterNominalOutPowerSensor(SensorBase):
-    """Representation of a Sensor."""
-    _attr_entity_category = EntityCategory.DIAGNOSTIC
-    device_class = SensorDeviceClass.POWER
-    _attr_unit_of_measurement = UnitOfPower.WATT
-    _attr_native_unit_of_measurement = UnitOfPower.WATT
-    _attr_suggested_display_precision = 0
-
-    def __init__(self, inverter_device: InverterDevice, coordinator: MyCoordinator):
-        """Initialize the sensor."""
-        super().__init__(inverter_device, coordinator)
-        self._attr_unique_id = f"{self._inverter_device.inverter_id}_nominal_out_power"
-        self._attr_name = f"{self._inverter_device.name} Nominal Out Power"
-
-    @callback
-    def _handle_coordinator_update(self) -> None:
-        """Handle updated data from the coordinator."""
-        data = self.data['last_data']['pars']
-        if 'sy_' not in data:
-            self._attr_native_value = None
-        else:
-            self._attr_native_value = \
-                next((x for x in data['sy_'] if
-                      x['id'] == 'sy_nonimal_output_active_power'), {'val': None})['val']
-        self.async_write_ha_state()
-
-
-class InverterRatedBatteryVoltageSensor(SensorBase):
-    """Representation of a Sensor."""
-    _attr_entity_category = EntityCategory.DIAGNOSTIC
-    device_class = SensorDeviceClass.VOLTAGE
-    _attr_unit_of_measurement = UnitOfElectricPotential.VOLT
-    _attr_native_unit_of_measurement = UnitOfElectricPotential.VOLT
-    _attr_suggested_display_precision = 0
-
-    def __init__(self, inverter_device: InverterDevice, coordinator: MyCoordinator):
-        """Initialize the sensor."""
-        super().__init__(inverter_device, coordinator)
-        self._attr_unique_id = f"{self._inverter_device.inverter_id}_rated_battery_voltage"
-        self._attr_name = f"{self._inverter_device.name} Rated Battery Voltage"
-
-    @callback
-    def _handle_coordinator_update(self) -> None:
-        """Handle updated data from the coordinator."""
-        data = self.data['last_data']['pars']
-        if 'sy_' not in data:
-            self._attr_native_value = None
-        else:
-            self._attr_native_value = \
-                next((x for x in data['sy_'] if
-                      x['id'] == 'sy_rated_battery_voltage'), {'val': None})['val']
-        self.async_write_ha_state()
-
-
-class InverterComebackUtilityVoltageSensor(SensorBase):
-    """Representation of a Sensor."""
-    _attr_entity_category = EntityCategory.DIAGNOSTIC
-    device_class = SensorDeviceClass.VOLTAGE
-    _attr_unit_of_measurement = UnitOfElectricPotential.VOLT
-    _attr_native_unit_of_measurement = UnitOfElectricPotential.VOLT
-    _attr_suggested_display_precision = 1
-
-    def __init__(self, inverter_device: InverterDevice, coordinator: MyCoordinator):
-        """Initialize the sensor."""
-        super().__init__(inverter_device, coordinator)
-        self._attr_unique_id = f"{self._inverter_device.inverter_id}_comeback_utility_voltage"
-        self._attr_name = f"{self._inverter_device.name} Comeback Utility"
-
-    @callback
-    def _handle_coordinator_update(self) -> None:
-        """Handle updated data from the coordinator."""
-        data = self.data['last_data']['pars']
-        if 'bt_' not in data:
-            self._attr_native_value = None
-        else:
-            self._attr_native_value = \
-                next((x for x in data['bt_'] if
-                      x['id'] == 'bt_comeback_utility_iode'), {'val': None})['val']
-        self.async_write_ha_state()
-
-
-class InverterComebackBatteryVoltageSensor(SensorBase):
-    """Representation of a Sensor."""
-    _attr_entity_category = EntityCategory.DIAGNOSTIC
-    device_class = SensorDeviceClass.VOLTAGE
-    _attr_unit_of_measurement = UnitOfElectricPotential.VOLT
-    _attr_native_unit_of_measurement = UnitOfElectricPotential.VOLT
-    _attr_suggested_display_precision = 1
-
-    def __init__(self, inverter_device: InverterDevice, coordinator: MyCoordinator):
-        """Initialize the sensor."""
-        super().__init__(inverter_device, coordinator)
-        self._attr_unique_id = f"{self._inverter_device.inverter_id}_comeback_battery_voltage"
-        self._attr_name = f"{self._inverter_device.name} Comeback Battery"
-
-    @callback
-    def _handle_coordinator_update(self) -> None:
-        """Handle updated data from the coordinator."""
-        data = self.data['last_data']['pars']
-        if 'bt_' not in data:
-            self._attr_native_value = None
-        else:
-            self._attr_native_value = \
-                next((x for x in data['bt_'] if
-                      x['id'] == 'bt_battery_mode_voltage'), {'val': None})['val']
-        self.async_write_ha_state()
-
-
-class InverterOutputPrioritySensor(SensorBase):
-    """Representation of a Sensor."""
-    device_class = SensorDeviceClass.ENUM
-    options = ['Utility', 'Solar', 'SBU']
-    _attr_entity_category = EntityCategory.DIAGNOSTIC
-
-    def __init__(self, inverter_device: InverterDevice, coordinator: MyCoordinator):
-        """Initialize the sensor."""
-        super().__init__(inverter_device, coordinator)
-        self._attr_unique_id = f"{self._inverter_device.inverter_id}_output_priority"
-        self._attr_name = f"{self._inverter_device.name} Output Priority"
-
-    @callback
-    def _handle_coordinator_update(self) -> None:
-        """Handle updated data from the coordinator."""
-        data = self.data
-        device_data = self._inverter_device.device_data
-        value = resolve_output_priority(data, device_data)
-        if value in self.options:
-            self._attr_native_value = value
-        self.async_write_ha_state()
-
-
-class InverterChargePrioritySensor(SensorBase):
-    """Representation of a Sensor."""
-    device_class = SensorDeviceClass.ENUM
-    options = ['SOLAR_PRIORITY', 'SOLAR_ONLY', 'SOLAR_AND_UTILITY', 'NONE']
-    _attr_entity_category = EntityCategory.DIAGNOSTIC
-
-    def __init__(self, inverter_device: InverterDevice, coordinator: MyCoordinator):
-        """Initialize the sensor."""
-        super().__init__(inverter_device, coordinator)
-        self._attr_unique_id = f"{self._inverter_device.inverter_id}_charge_priority"
-        self._attr_name = f"{self._inverter_device.name} Charge Priority"
-
-    @callback
-    def _handle_coordinator_update(self) -> None:
-        """Handle updated data from the coordinator."""
-
-        data = self.data
-        device_data = self._inverter_device.device_data
-
-        self._attr_native_value = resolve_charge_priority(data, device_data)
-        self.async_write_ha_state()
-
-
-class BatteryInEnergySensor(MyEnergySensor):
-
-    def __init__(self, inverter_device: InverterDevice, coordinator: MyCoordinator):
-        """Initialize the sensor."""
-        super().__init__(inverter_device, coordinator)
-        self._attr_unique_id = f"{self._inverter_device.inverter_id}_battery_in_energy"
-        self._attr_name = f"{self._inverter_device.name} Battery In Energy"
-
-    @callback
-    def _handle_coordinator_update(self) -> None:
-        """Handle updated data from the coordinator."""
-        now = datetime.now()
-        elapsed_seconds = int(now.timestamp() - self._prev_value_timestamp.timestamp())
-        data = self.data
-        device_data = self._inverter_device.device_data
-
-        current_value = resolve_battery_charging_power(data, device_data)
-        if self._prev_value is not None:
-            self._attr_native_value += (elapsed_seconds / 3600) * (self._prev_value + current_value) / 2
-        self._prev_value = current_value
-        self._prev_value_timestamp = now
-        self.async_write_ha_state()
-
-
-class BatteryOutEnergySensor(MyEnergySensor):
-
-    def __init__(self, inverter_device: InverterDevice, coordinator: MyCoordinator):
-        """Initialize the sensor."""
-        super().__init__(inverter_device, coordinator)
-        self._attr_unique_id = f"{self._inverter_device.inverter_id}_battery_out_energy"
-        self._attr_name = f"{self._inverter_device.name} Battery Out Energy"
-
-    @callback
-    def _handle_coordinator_update(self) -> None:
-        """Handle updated data from the coordinator."""
-        now = datetime.now()
-        elapsed_seconds = int(now.timestamp() - self._prev_value_timestamp.timestamp())
-        data = self.data
-        current_value = resolve_battery_discharge_power(data, self._inverter_device.device_data)
-        if self._prev_value is not None:
-            self._attr_native_value += (elapsed_seconds / 3600) * (self._prev_value + current_value) / 2
-        self._prev_value = current_value
-        self._prev_value_timestamp = now
-        self.async_write_ha_state()
-
-
-class InverterOutEnergySensor(MyEnergySensor):
-
-    def __init__(self, inverter_device: InverterDevice, coordinator: MyCoordinator):
-        """Initialize the sensor."""
-        super().__init__(inverter_device, coordinator)
-        self._attr_unique_id = f"{self._inverter_device.inverter_id}_inverter_out_energy"
-        self._attr_name = f"{self._inverter_device.name} Inverter Out Energy"
-
-    @callback
-    def _handle_coordinator_update(self) -> None:
-        """Handle updated data from the coordinator."""
-        now = datetime.now()
-        elapsed_seconds = int(now.timestamp() - self._prev_value_timestamp.timestamp())
-        data = self.data
-        device_data = self._inverter_device.device_data
-        current_val = resolve_active_load_power(data, device_data)
-        if self._prev_value is not None:
-            self._attr_native_value += (elapsed_seconds / 3600) * (self._prev_value + current_val) / 2
-        self._prev_value = current_val
-        self._prev_value_timestamp = now
-        self.async_write_ha_state()
-
-
-class InverterInEnergySensor(MyEnergySensor):
-
-    def __init__(self, inverter_device: InverterDevice, coordinator: MyCoordinator):
-        """Initialize the sensor."""
-        super().__init__(inverter_device, coordinator)
-        self._attr_unique_id = f"{self._inverter_device.inverter_id}_inverter_in_energy"
-        self._attr_name = f"{self._inverter_device.name} Inverter In Energy"
-
-    @callback
-    def _handle_coordinator_update(self) -> None:
-        """Handle updated data from the coordinator."""
-        now = datetime.now()
-        elapsed_seconds = int(now.timestamp() - self._prev_value_timestamp.timestamp())
-        data = self.data
-        device_data = self._inverter_device.device_data
-        current_val = resolve_grid_in_power(data, device_data)
-        if self._prev_value is not None:
-            self._attr_native_value += (elapsed_seconds / 3600) * (self._prev_value + current_val) / 2
-        self._prev_value = current_val
-        self._prev_value_timestamp = now
-        self.async_write_ha_state()
-
-
-class InverterDCTemperatureSensor(SensorBase):
-    """Representation of a Sensor."""
-    device_class = SensorDeviceClass.TEMPERATURE
-    _attr_unit_of_measurement = UnitOfTemperature.CELSIUS
-    _attr_native_unit_of_measurement = UnitOfTemperature.CELSIUS
-    _attr_entity_category = EntityCategory.DIAGNOSTIC
-    _attr_suggested_display_precision = 0
-    _sensor_option_display_precision = 0
-
-    def __init__(self, inverter_device: InverterDevice, coordinator: MyCoordinator):
-        """Initialize the sensor."""
-        super().__init__(inverter_device, coordinator)
-        self._attr_unique_id = f"{self._inverter_device.inverter_id}_inverter_dc_temperature"
-        self._attr_name = f"{self._inverter_device.name} Inverter DC Temperature"
-
-    @callback
-    def _handle_coordinator_update(self) -> None:
-        """Handle updated data from the coordinator."""
-        data = self.data
-        device_data = self._inverter_device.device_data
-        self._attr_native_value = resolve_dc_module_temperature(data, device_data)
-        self.async_write_ha_state()
-
-
-class InverterInvTemperatureSensor(SensorBase):
-    """Representation of a Sensor."""
-    device_class = SensorDeviceClass.TEMPERATURE
-    _attr_unit_of_measurement = UnitOfTemperature.CELSIUS
-    _attr_native_unit_of_measurement = UnitOfTemperature.CELSIUS
-    _attr_entity_category = EntityCategory.DIAGNOSTIC
-    _attr_suggested_display_precision = 0
-    _sensor_option_display_precision = 0
-
-    def __init__(self, inverter_device: InverterDevice, coordinator: MyCoordinator):
-        """Initialize the sensor."""
-        super().__init__(inverter_device, coordinator)
-        self._attr_unique_id = f"{self._inverter_device.inverter_id}_inverter_inv_temperature"
-        self._attr_name = f"{self._inverter_device.name} Inverter INV Temperature"
-
-    @callback
-    def _handle_coordinator_update(self) -> None:
-        """Handle updated data from the coordinator."""
-        data = self.data
-        device_data = self._inverter_device.device_data
-        self._attr_native_value = resolve_inv_temperature(data, device_data)
-        self.async_write_ha_state()
-
-
-class DessSensorSource(Enum):
-    PARS_ES = 'pars'
-    SP_LAST_DATA = 'last_data'
-    ENERGY_FLOW = 'energy_flow'
-
-
-class InverterDynamicSensor(SensorBase):
-    """Representation of a Sensor."""
-    # device_class = SensorDeviceClass.TEMPERATURE
-    # _attr_unit_of_measurement = UnitOfTemperature.CELSIUS
-    # _attr_native_unit_of_measurement = UnitOfTemperature.CELSIUS
-    _attr_entity_category = EntityCategory.DIAGNOSTIC
-
-    # _attr_suggested_display_precision = 0
-    # _sensor_option_display_precision = 0
-
-    def __init__(self, inverter_device: InverterDevice, coordinator: MyCoordinator, sensor_data,
-                 sensor_source: DessSensorSource):
-        """Initialize the sensor."""
-        super().__init__(inverter_device, coordinator)
-        # "par": "bt_battery_charging_current",
-        # "name": "Battery Charging Current",
-        # "val": "0.0000",
-        # "unit": "A"
-        self._sensor_par_id = sensor_data['par']
-        self._sensor_source = sensor_source
-        self._attr_unique_id = f"{self._inverter_device.inverter_id}_raw_{sensor_data['par']}"
-        self._attr_name = f"{self._inverter_device.name} Raw {sensor_data['name']}"
-
-        device_class_map = {
-            'kW': SensorDeviceClass.POWER,
-            'W': SensorDeviceClass.POWER,
-            'A': SensorDeviceClass.CURRENT,
-            'V': SensorDeviceClass.VOLTAGE,
-            'HZ': SensorDeviceClass.FREQUENCY,
-            '%': SensorDeviceClass.BATTERY,
-        }
-        unit_map = {
-            'kW': UnitOfPower.KILO_WATT,
-            'W': UnitOfPower.WATT,
-            'A': UnitOfElectricCurrent.AMPERE,
-            'V': UnitOfElectricPotential.VOLT,
-            'HZ': UnitOfFrequency.HERTZ,
-            '%': PERCENTAGE,
-        }
-        display_unit = unit_map[sensor_data['unit']]
-        self._attr_device_class = device_class_map[sensor_data['unit']]
-        # self._unit_of_measurement = sensor_data['unit']
-        self._attr_unit_of_measurement = display_unit
-        self._attr_native_unit_of_measurement = display_unit
-        self._attr_native_value = float(sensor_data['val'])
-        # self.async_write_ha_state()
-
-    @callback
-    def _handle_coordinator_update(self) -> None:
-        """Handle updated data from the coordinator."""
-        data = self.data
-
-        def get_prefix(s):
-            return s.split("_", 1)[0] + "_"
-
-        match self._sensor_source:
-            case DessSensorSource.PARS_ES:
-                self._attr_native_value = float(
-                    next((x for x in data['pars']['parameter'] if x['par'] == self._sensor_par_id), {'val': '0'})['val']
-                )
-            case DessSensorSource.SP_LAST_DATA:
-                key = get_prefix(self._sensor_par_id)
-                self._attr_native_value = float(
-                    next((x for x in data['last_data']['pars'][key] if x['id'] == self._sensor_par_id), {'val': '0'})[
-                        'val']
-                )
-        self.async_write_ha_state()
+class BatteryVoltageSensor(ValueResolvingSensor):
+    def __init__(self, inverter_device, coordinator):
+        super().__init__(inverter_device, coordinator, "Battery Voltage", "battery", resolve_battery_voltage,
+                         SensorDeviceClass.VOLTAGE, UnitOfElectricPotential.VOLT, 1)
+
+
+class PVPowerSensor(ValueResolvingSensor):
+    def __init__(self, inverter_device, coordinator):
+        super().__init__(inverter_device, coordinator, "PV Power", "pv_power", resolve_pv_power,
+                         SensorDeviceClass.POWER, UnitOfPower.WATT)
+
+
+class PVVoltageSensor(ValueResolvingSensor):
+    def __init__(self, inverter_device, coordinator):
+        super().__init__(inverter_device, coordinator, "PV Voltage", "pv_voltage", resolve_pv_voltage,
+                         SensorDeviceClass.VOLTAGE, UnitOfElectricPotential.VOLT)
+
+
+class GridInputVoltageSensor(ValueResolvingSensor):
+    def __init__(self, inverter_device, coordinator):
+        super().__init__(inverter_device, coordinator, "Grid In Voltage", "grid_in_voltage", resolve_grid_input_voltage,
+                         SensorDeviceClass.VOLTAGE, UnitOfElectricPotential.VOLT)
+
+
+class InverterOutputVoltageSensor(ValueResolvingSensor):
+    def __init__(self, inverter_device, coordinator):
+        super().__init__(inverter_device, coordinator, "Inverter Out Voltage", "inverter_out_voltage",
+                         resolve_grid_output_voltage, SensorDeviceClass.VOLTAGE, UnitOfElectricPotential.VOLT)
+
+
+class InverterOutputPowerSensor(ValueResolvingSensor):
+    def __init__(self, inverter_device, coordinator):
+        super().__init__(inverter_device, coordinator, "Inverter Out Power", "inverter_out_power",
+                         resolve_active_load_power, SensorDeviceClass.POWER, UnitOfPower.WATT)
+
+
+class InverterLoadSensor(ValueResolvingSensor):
+    def __init__(self, inverter_device, coordinator):
+        super().__init__(inverter_device, coordinator, "Inverter Load", "inverter_load", resolve_active_load_percentage,
+                         SensorDeviceClass.POWER_FACTOR, PERCENTAGE)
+
+
+class BatteryCapacitySensor(ValueResolvingSensor):
+    def __init__(self, inverter_device, coordinator):
+        super().__init__(inverter_device, coordinator, "Battery Capacity", "battery_capacity", resolve_battery_capacity,
+                         SensorDeviceClass.BATTERY, PERCENTAGE)
+
+
+class GridInputPowerSensor(ValueResolvingSensor):
+    def __init__(self, inverter_device, coordinator):
+        super().__init__(inverter_device, coordinator, "Grid In Power", "grid_in_power", resolve_grid_in_power,
+                         SensorDeviceClass.POWER, UnitOfPower.WATT)
+
+
+class GridInputFrequencySensor(ValueResolvingSensor):
+    def __init__(self, inverter_device, coordinator):
+        super().__init__(inverter_device, coordinator, "Grid In Frequency", "grid_in_frequency", resolve_grid_frequency,
+                         SensorDeviceClass.FREQUENCY, UnitOfFrequency.HERTZ, 2, EntityCategory.DIAGNOSTIC)
+
+
+class BatteryChargeSensor(ValueResolvingSensor):
+    def __init__(self, inverter_device, coordinator):
+        super().__init__(inverter_device, coordinator, "Battery Charge Current", "battery_charge_current",
+                         resolve_battery_charging_current, SensorDeviceClass.CURRENT, UnitOfElectricCurrent.AMPERE, 1)
+
+
+class BatteryDischargeSensor(ValueResolvingSensor):
+    def __init__(self, inverter_device, coordinator):
+        super().__init__(inverter_device, coordinator, "Battery Discharge Current", "battery_discharge_current",
+                         resolve_battery_discharge_current, SensorDeviceClass.CURRENT, UnitOfElectricCurrent.AMPERE, 1)
+
+
+class BatteryChargePowerSensor(ValueResolvingSensor):
+    def __init__(self, inverter_device, coordinator):
+        super().__init__(inverter_device, coordinator, "Battery Charge Power", "battery_charge_power",
+                         resolve_battery_charging_power, SensorDeviceClass.POWER, UnitOfPower.WATT)
+
+
+class BatteryDischargePowerSensor(ValueResolvingSensor):
+    def __init__(self, inverter_device, coordinator):
+        super().__init__(inverter_device, coordinator, "Battery Discharge Power", "battery_discharge_power",
+                         resolve_battery_discharge_power, SensorDeviceClass.POWER, UnitOfPower.WATT)
+
+
+class InverterDCTemperatureSensor(ValueResolvingSensor):
+    def __init__(self, inverter_device, coordinator):
+        super().__init__(inverter_device, coordinator, "Inverter DC Temperature", "inverter_dc_temperature",
+                         resolve_dc_module_temperature, SensorDeviceClass.TEMPERATURE, UnitOfTemperature.CELSIUS, 0,
+                         EntityCategory.DIAGNOSTIC)
+
+
+class InverterInvTemperatureSensor(ValueResolvingSensor):
+    def __init__(self, inverter_device, coordinator):
+        super().__init__(inverter_device, coordinator, "Inverter INV Temperature", "inverter_inv_temperature",
+                         resolve_inv_temperature, SensorDeviceClass.TEMPERATURE, UnitOfTemperature.CELSIUS, 0,
+                         EntityCategory.DIAGNOSTIC)
+
+
+class PVPowerTotalSensor(ValueResolvingSensor):
+    def __init__(self, inverter_device, coordinator):
+        super().__init__(inverter_device, coordinator, "PV Total Energy", "pv_total_energy",
+                         lambda data, _: data['device']['energyTotal'], SensorDeviceClass.ENERGY,
+                         UnitOfEnergy.KILO_WATT_HOUR, 3, None, SensorStateClass.TOTAL)
+
+
+class InverterStatusSensor(ValueResolvingSensor):
+    def __init__(self, inverter_device, coordinator):
+        options = ['NORMAL', 'OFFLINE', 'FAULT', 'STANDBY', 'WARNING']
+        super().__init__(inverter_device, coordinator, "Status", "status",
+                         lambda data, _: options[data['device']['status']], SensorDeviceClass.ENUM, None,
+                         entity_category=EntityCategory.DIAGNOSTIC)
+
+
+class InverterOutputPrioritySensor(ValueResolvingSensor):
+    def __init__(self, inverter_device, coordinator):
+        super().__init__(inverter_device, coordinator, "Output Priority", "output_priority", resolve_output_priority,
+                         SensorDeviceClass.ENUM, None, entity_category=EntityCategory.DIAGNOSTIC)
+
+
+class InverterChargePrioritySensor(ValueResolvingSensor):
+    def __init__(self, inverter_device, coordinator):
+        super().__init__(inverter_device, coordinator, "Charge Priority", "charge_priority", resolve_charge_priority,
+                         SensorDeviceClass.ENUM, None, entity_category=EntityCategory.DIAGNOSTIC)
+
+
+class InverterConfigBTUtilityChargeSensor(ValueResolvingSensor):
+    def __init__(self, inverter_device, coordinator):
+        super().__init__(inverter_device, coordinator, "Battery Utility Charge Current",
+                         "config_bt_utility_charge_current", resolve_bt_utility_charge, SensorDeviceClass.CURRENT,
+                         UnitOfElectricCurrent.AMPERE, entity_category=EntityCategory.DIAGNOSTIC)
+
+
+class InverterConfigBTTotalChargeSensor(ValueResolvingSensor):
+    def __init__(self, inverter_device, coordinator):
+        super().__init__(inverter_device, coordinator, "Battery Total Charge Current", "config_bt_total_charge_current",
+                         resolve_bt_total_charge_current, SensorDeviceClass.CURRENT, UnitOfElectricCurrent.AMPERE,
+                         entity_category=EntityCategory.DIAGNOSTIC)
+
+
+class InverterConfigBTCutoffSensor(ValueResolvingSensor):
+    def __init__(self, inverter_device, coordinator):
+        super().__init__(inverter_device, coordinator, "Battery Cutoff Voltage", "config_bt_cutoff_voltage",
+                         resolve_bt_cutoff_voltage, SensorDeviceClass.VOLTAGE, UnitOfElectricPotential.VOLT,
+                         entity_category=EntityCategory.DIAGNOSTIC)
+
+
+class InverterNominalOutPowerSensor(ValueResolvingSensor):
+    def __init__(self, inverter_device, coordinator):
+        super().__init__(inverter_device, coordinator, "Nominal Out Power", "nominal_out_power",
+                         resolve_sy_nominal_out_power, SensorDeviceClass.POWER, UnitOfPower.WATT, 0,
+                         EntityCategory.DIAGNOSTIC)
+
+
+class InverterRatedBatteryVoltageSensor(ValueResolvingSensor):
+    def __init__(self, inverter_device, coordinator):
+        super().__init__(inverter_device, coordinator, "Rated Battery Voltage", "rated_battery_voltage",
+                         resolve_sy_rated_battery_voltage, SensorDeviceClass.VOLTAGE, UnitOfElectricPotential.VOLT, 0,
+                         EntityCategory.DIAGNOSTIC)
+
+
+class InverterComebackUtilityVoltageSensor(ValueResolvingSensor):
+    def __init__(self, inverter_device, coordinator):
+        super().__init__(inverter_device, coordinator, "Comeback Utility", "comeback_utility_voltage",
+                         resolve_bt_comeback_utility_voltage, SensorDeviceClass.VOLTAGE, UnitOfElectricPotential.VOLT,
+                         1, EntityCategory.DIAGNOSTIC)
+
+
+class InverterComebackBatteryVoltageSensor(ValueResolvingSensor):
+    def __init__(self, inverter_device, coordinator):
+        super().__init__(
+            inverter_device,
+            coordinator,
+            "Comeback Battery",
+            "comeback_battery_voltage",
+            resolve_bt_comeback_battery_voltage,
+            SensorDeviceClass.VOLTAGE,
+            UnitOfElectricPotential.VOLT,
+            1,
+            EntityCategory.DIAGNOSTIC
+        )

@@ -3,15 +3,8 @@ import hashlib
 import time
 import urllib
 from datetime import datetime
-from enum import StrEnum
 
 import aiohttp
-
-
-class DeviceParameterName(StrEnum):
-    BATTERY_VOLTAGE = 'Battery Voltage'
-    SOUTH = 'south'
-
 
 headers = {
     'Host': 'web.dessmonitor.com',

@@ -21,19 +21,17 @@ async def safe_call(coro, default=None):
         return default
 
 
-class MyCoordinator(DataUpdateCoordinator):
-    """My custom coordinator."""
+class MainCoordinator(DataUpdateCoordinator):
     devices = []
     auth = None
     auth_issued_at = None
 
     def __init__(self, hass: HomeAssistant, config_entry):
-        """Initialize my coordinator."""
         super().__init__(
             hass,
             _LOGGER,
             # Name of the data. For logging purposes.
-            name="My sensor",
+            name="Main coordinator",
             config_entry=config_entry,
             # Polling interval. Will only be polled if there are subscribers.
             update_interval=timedelta(seconds=60),

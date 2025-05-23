@@ -3,13 +3,13 @@ from __future__ import annotations
 from homeassistant.core import HomeAssistant
 
 from custom_components.dess_monitor.coordinators.direct_coordinator import DirectCoordinator
-from custom_components.dess_monitor.coordinators.coordinator import MyCoordinator
+from custom_components.dess_monitor.coordinators.coordinator import MainCoordinator
 
 
 class Hub:
     manufacturer = "DESS Monitor"
 
-    def __init__(self, hass: HomeAssistant, username: str, coordinator: MyCoordinator = None,
+    def __init__(self, hass: HomeAssistant, username: str, coordinator: MainCoordinator = None,
                  direct_coordinator1: DirectCoordinator = None) -> None:
         self.auth = None
         self._username = username

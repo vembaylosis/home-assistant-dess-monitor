@@ -30,6 +30,7 @@ async def async_get_device_diagnostics(
             'data': async_redact_data(entry.runtime_data.coordinator.data[device.model], [
                 'devalias', 'pn', 'sn', 'collalias', 'usr'
             ]),
-            'direct_data': entry.runtime_data.direct_coordinator.data[device.model]
+            'direct_data': (entry.runtime_data.direct_coordinator.data or {}) \
+                       .get(device.model, {})
         }
     }
