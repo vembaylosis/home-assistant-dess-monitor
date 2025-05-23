@@ -5,6 +5,8 @@ SENSOR_KEYS_MAP: Dict[str, list[str]] = {
         "bt_eybond_read_29",
         "bt_battery_charging_current",
         "Battery charging current",
+        "eybond_read_25",
+        "Battery Current",
     ],
     "battery_charging_voltage": [
         "bt_vulk_charging_voltage",
@@ -19,11 +21,13 @@ SENSOR_KEYS_MAP: Dict[str, list[str]] = {
     "battery_voltage": [
         "bt_battery_voltage",
         "Battery Voltage",
+        "eybond_read_24",
     ],
     "active_load_power": [
         "load_active_power",
         "output_power",
         "bc_load_active_power",
+        "Output Active Power",
     ],
     "active_load_percentage": [
         "bc_eybond_read_37",
@@ -39,6 +43,8 @@ SENSOR_KEYS_MAP: Dict[str, list[str]] = {
     ],
     "grid_in_power": [
         "gd_grid_active_power",
+        "grid_active_power",
+        "Grid Power",
     ],
     "battery_capacity": [
         "bt_battery_capacity",
@@ -50,12 +56,15 @@ SENSOR_KEYS_MAP: Dict[str, list[str]] = {
     ],
     "pv_power": [
         "pv_output_power",
+        "Total PV Power",
     ],
     "pv_voltage": [
         "pv_input_voltage",
         "pv_voltage",
         "PV Voltage",
         "PV Input Voltage",
+        "eybond_read_43",
+        "PV1 Voltage",
     ],
     "grid_input_voltage": [
         "gd_ac_input_voltage",
