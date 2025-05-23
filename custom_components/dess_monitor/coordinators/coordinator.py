@@ -89,7 +89,8 @@ class MyCoordinator(DataUpdateCoordinator):
         devices = await get_devices(self.auth['token'], self.auth['secret'])
         active_devices = [device for device in devices if device['status'] != 1]
         selected_devices = [device for device in active_devices if
-                            str(device['pn']) in self.config_entry.options["devices"]] if (
+                            str(device['pn']) in self.config_entry.options["devices"] or str(device['uid']) in
+                            self.config_entry.options["devices"]] if (
                 "devices" in self.config_entry.options and len(
             self.config_entry.options["devices"]) > 0) else active_devices
         return selected_devices
@@ -105,6 +106,7 @@ class MyCoordinator(DataUpdateCoordinator):
                 print('coordinator update data devices')
 
                 await self.check_auth()
+                self.devices = await self.get_active_devices()
 
                 token = self.auth['token']
                 secret = self.auth['secret']
