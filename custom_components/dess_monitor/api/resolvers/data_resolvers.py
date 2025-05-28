@@ -1,4 +1,5 @@
-from custom_components.dess_monitor.api.helpers import get_sensor_value_simple, safe_float
+from custom_components.dess_monitor.api.helpers import get_sensor_value_simple, safe_float, \
+    get_sensor_value_simple_entry
 
 
 def resolve_battery_charging_current(data, device_data):
@@ -10,10 +11,30 @@ def resolve_battery_charging_voltage(data, device_data):
     return safe_float(get_sensor_value_simple("battery_charging_voltage", data, device_data))
 
 
-def resolve_battery_discharge_current(data, device_data):
-    raw = get_sensor_value_simple("battery_discharge_current", data, device_data)
-    # в случае отрицательного знака — возвращаем абсолютное значение
-    return abs(safe_float(raw))
+def resolve_battery_discharge_current(
+    data,
+    device_data,
+) -> float:
+    """
+    Для поля bt_eybond_read_29 — возвращает ABS только для отрицательных значений,
+    иначе 0.0.
+    Для всех остальных полей — возвращает значение как есть (может быть +
+    или −).
+    Если ничего не найдено — 0.0.
+    """
+    found = get_sensor_value_simple_entry("battery_discharge_current", data, device_data)
+    if not found:
+        return 0.0
+
+    key, raw_val = found
+    value = safe_float(raw_val)
+
+    if key == "bt_eybond_read_29":
+        # Только отрицательный ток разряда, положительный — в 0
+        return abs(value) if value < 0 else 0.0
+    else:
+        # Для прочих сенсоров возвращаем значение напрямую
+        return value
 
 
 def resolve_battery_voltage(data, device_data):

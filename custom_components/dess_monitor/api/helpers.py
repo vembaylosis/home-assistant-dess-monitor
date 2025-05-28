@@ -1,4 +1,4 @@
-from typing import Any, Dict, Optional
+from typing import Any, Dict, Optional, Tuple
 
 from custom_components.dess_monitor.api import set_ctrl_device_param, get_device_ctrl_value, send_device_direct_command
 from custom_components.dess_monitor.api.commands.direct_commands import decode_direct_response, get_command_hex
@@ -111,6 +111,25 @@ def get_sensor_value_simple(
         res = resolve_param(data, {"par": key}, case_insensitive=True)
         if res:
             return res.get("val")
+    return None
+
+def get_sensor_value_simple_entry(
+    name: str,
+    data: Dict[str, Any],
+    device_data: Dict[str, Any]
+) -> Optional[Tuple[str, str]]:
+    """
+    Ищет значение сенсора по ключам из SENSOR_KEYS_MAP[name].
+    Возвращает кортеж (имя_поля, значение), где имя_поля — "id" или "par".
+    """
+    keys = SENSOR_KEYS_MAP.get(name, [])
+    for key in keys:
+        res = resolve_param(data, {"id": key}, case_insensitive=True)
+        if res:
+            return "id", res.get("val")
+        res = resolve_param(data, {"par": key}, case_insensitive=True)
+        if res:
+            return "par", res.get("val")
     return None
 
 
