@@ -12,8 +12,8 @@ def resolve_battery_charging_voltage(data, device_data):
 
 
 def resolve_battery_discharge_current(
-    data,
-    device_data,
+        data,
+        device_data,
 ) -> float:
     """
     Для поля bt_eybond_read_29 — возвращает ABS только для отрицательных значений,
@@ -26,10 +26,10 @@ def resolve_battery_discharge_current(
     if not found:
         return 0.0
 
-    key, raw_val = found
+    key, raw_val, unit = found
     value = safe_float(raw_val)
 
-    if key == "bt_eybond_read_29":
+    if key == "bt_eybond_read_29" or key == "Battery Current":
         # Только отрицательный ток разряда, положительный — в 0
         return abs(value) if value < 0 else 0.0
     else:
@@ -97,11 +97,31 @@ def resolve_grid_frequency(data, device_data):
 
 
 def resolve_pv_power(data, device_data):
-    return safe_float(get_sensor_value_simple("pv_power", data, device_data))
+    found = (get_sensor_value_simple_entry("pv_power", data, device_data))
+
+    if not found:
+        return None
+
+    key, raw_val, unit = found
+    val = safe_float(raw_val)
+    if unit == 'kW':
+        val *= 1000
+
+    return val
 
 
 def resolve_pv2_power(data, device_data):
-    return safe_float(get_sensor_value_simple("pv2_power", data, device_data))
+    found = (get_sensor_value_simple_entry("pv2_power", data, device_data))
+
+    if not found:
+        return None
+
+    key, raw_val, unit = found
+    val = safe_float(raw_val)
+    if unit == 'kW':
+        val *= 1000
+
+    return val
 
 
 def resolve_pv_voltage(data, device_data):
