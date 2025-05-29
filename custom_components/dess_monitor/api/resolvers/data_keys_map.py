@@ -23,6 +23,9 @@ SENSOR_KEYS_MAP: Dict[str, list[str]] = {
         "Battery Voltage",
         "eybond_read_24",
     ],
+    "battery_active_power": [
+        "battery_active_power",
+    ],
     "active_load_power": [
         "load_active_power",
         "output_power",
