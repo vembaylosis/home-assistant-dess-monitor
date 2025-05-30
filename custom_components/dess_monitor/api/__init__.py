@@ -6,9 +6,11 @@ from datetime import datetime
 
 import aiohttp
 
+DOMAIN_BASE_URL = 'web.shinemonitor.com'
+
 headers = {
-    'Host': 'web.dessmonitor.com',
-    'Origin': 'web.dessmonitor.com',
+    'Host': DOMAIN_BASE_URL,
+    'Origin': DOMAIN_BASE_URL,
     'Referer': 'https://www.dessmonitor.com/',
     'DNT': '1',
     'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/133.0.0.0 Safari/537.36',
@@ -34,7 +36,7 @@ async def auth_user(username: str, password_hash: str):
             'salt': salt,
             **params,
         }
-        url = f'https://web.dessmonitor.com/public/?{urllib.parse.urlencode(payload, doseq=False, safe="@")}'
+        url = f'https://{DOMAIN_BASE_URL}/public/?{urllib.parse.urlencode(payload, doseq=False, safe="@")}'
         response = (await (await session.get(url, headers=headers)).json())
         if response['err'] != 0:
             print(f'Error {response["err"]} while authenticating user: {response["desc"]}')
@@ -72,7 +74,7 @@ async def create_auth_api_request(token, secret, params, raise_error=True):
             payload = generate_params_signature(token, secret, params)
             # print(payload)
             params_path = urllib.parse.urlencode(payload, doseq=False, safe="@")
-            url = f'https://web.dessmonitor.com/public/?{params_path}'
+            url = f'https://{DOMAIN_BASE_URL}/public/?{params_path}'
             json = (await (await session.get(url, headers=headers)).json())
             if json['err'] == 0:
                 return json['dat']
