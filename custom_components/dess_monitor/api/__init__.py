@@ -99,7 +99,7 @@ async def create_auth_api_remote_request(token, secret, params, raise_error=True
             payload = generate_params_signature(token, secret, params)
             # print(payload)
             params_path = urllib.parse.urlencode(payload, doseq=False, safe="@")
-            url = f'https://web.dessmonitor.com/remote/?{params_path}'
+            url = f'https://{DOMAIN_BASE_URL}/remote/?{params_path}'
             json = (await (await session.get(url, headers=headers)).json())
             if json['err'] == 0:
                 return json['dat']
