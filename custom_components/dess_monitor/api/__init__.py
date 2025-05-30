@@ -246,6 +246,7 @@ async def set_ctrl_device_param(token: str, secret: str, device_identity, param_
     payload = {
         'action': 'ctrlDevice',
         'i18n': 'en_US',
+        'source': '1',
         'id': param_id,
         'val': value,
         **extract_device_identity(device_identity),
