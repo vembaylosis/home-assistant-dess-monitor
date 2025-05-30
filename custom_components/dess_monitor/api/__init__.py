@@ -250,7 +250,7 @@ async def set_ctrl_device_param(token: str, secret: str, device_identity, param_
         'val': value,
         **extract_device_identity(device_identity),
     }
-    response = await create_auth_api_remote_request(token, secret, payload)
+    response = await create_auth_api_request(token, secret, payload)
 
     return response
 
@@ -262,6 +262,6 @@ async def send_device_direct_command(token: str, secret: str, device_identity, c
         'cmd': cmd,
         **extract_device_identity(device_identity),
     }
-    response = await create_auth_api_remote_request(token, secret, payload)
+    response = await create_auth_api_request(token, secret, payload)
 
     return response
