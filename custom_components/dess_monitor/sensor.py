@@ -36,7 +36,7 @@ async def async_setup_entry(
                 DirectInverterOutputEnergySensor(item, hub.direct_coordinator),
                 DirectBatteryInEnergySensor(item, hub.direct_coordinator),
                 DirectBatteryOutEnergySensor(item, hub.direct_coordinator),
-                # DirectBatteryStateOfChargeSensor(item, hub.direct_coordinator, hass),
+                DirectBatteryStateOfChargeSensor(item, hub.direct_coordinator, hass),
             ])
 
     if new_devices:
