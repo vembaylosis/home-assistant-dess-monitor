@@ -16,7 +16,7 @@ headers = {
     'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/133.0.0.0 Safari/537.36',
 }
 
-api_semaphore = asyncio.Semaphore(3)
+api_semaphore = asyncio.Semaphore(10)
 
 
 async def auth_user(username: str, password_hash: str):

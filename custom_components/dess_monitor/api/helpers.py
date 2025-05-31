@@ -110,7 +110,8 @@ def get_sensor_value_simple(
             return res.get("val")
         res = resolve_param(data, {"par": key}, case_insensitive=True)
         if res:
-            return res.get("val")
+            if res.get("status") != 0:
+                return res.get("val")
     return None
 
 
@@ -130,6 +131,8 @@ def get_sensor_value_simple_entry(
             return res.get("id"), res.get("val"), res.get("unit", None)
         res = resolve_param(data, {"par": key}, case_insensitive=True)
         if res:
+            if res.get("status") == 0:
+                return None
             return res.get("par"), res.get("val"), res.get("unit", None)
     return None
 
