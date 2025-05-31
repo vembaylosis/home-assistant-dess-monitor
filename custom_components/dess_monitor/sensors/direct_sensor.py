@@ -389,48 +389,55 @@ class DirectDiagnosticSensorBase(DirectTypedSensorBase):
 
 
 QPIRI_SENSOR_MAPPING = {
-    "rated_grid_voltage": (DirectVoltageSensorBase, "Rated Grid Voltage"),
-    "rated_input_current": (DirectCurrentSensorBase, "Rated Input Current"),
-    "rated_ac_output_voltage": (DirectVoltageSensorBase, "Rated AC Output Voltage"),
-    "rated_output_frequency": (DirectFrequencySensorBase, "Rated Output Frequency"),
-    "rated_output_current": (DirectCurrentSensorBase, "Rated Output Current"),
-    "rated_output_apparent_power": (DirectApparentPowerSensorBase, "Rated Output Apparent Power"),
-    "rated_output_active_power": (DirectWattSensorBase, "Rated Output Active Power"),
-    "rated_battery_voltage": (DirectVoltageSensorBase, "Rated Battery Voltage"),
-    "low_battery_to_ac_bypass_voltage": (DirectVoltageSensorBase, "Low Battery to AC Bypass Voltage"),
-    "shut_down_battery_voltage": (DirectVoltageSensorBase, "Shut Down Battery Voltage"),
-    "bulk_charging_voltage": (DirectVoltageSensorBase, "Bulk Charging Voltage"),
-    "float_charging_voltage": (DirectVoltageSensorBase, "Float Charging Voltage"),
-    "battery_type": (BatteryTypeSensor, "Battery Type"),
-    "max_utility_charging_current": (DirectCurrentSensorBase, "Max Utility Charging Current"),
-    "max_charging_current": (DirectCurrentSensorBase, "Max Charging Current"),
-    "ac_input_voltage_range": (ACInputVoltageRangeSensor, "AC Input Voltage Range"),
-    "output_source_priority": (OutputSourcePrioritySensor, "Output Source Priority"),
-    "charger_source_priority": (ChargerSourcePrioritySensor, "Charger Source Priority"),
-    "parallel_max_number": (DirectDiagnosticSensorBase, "Parallel Max Number"),
-    "reserved_uu": (DirectDiagnosticSensorBase, "Reserved UU"),
-    "reserved_v": (DirectDiagnosticSensorBase, "Reserved V"),
-    "parallel_mode": (ParallelModeSensor, "Parallel Mode"),
-    "high_battery_voltage_to_battery_mode": (DirectVoltageSensorBase, "High Battery Voltage to Battery Mode"),
-    "solar_work_condition_in_parallel": (DirectDiagnosticSensorBase, "Solar Work Condition In Parallel"),
-    "solar_max_charging_power_auto_adjust": (DirectDiagnosticSensorBase, "Solar Max Charging Power Auto Adjust"),
-    "rated_battery_capacity": (DirectBatteryCapacitySensorBase, "Rated Battery Capacity"),
-    "reserved_b": (DirectDiagnosticSensorBase, "Reserved B"),
-    "reserved_ccc": (DirectDiagnosticSensorBase, "Reserved CCC")
+    "rated_grid_voltage": (DirectVoltageSensorBase, "Rated Grid Voltage", EntityCategory.DIAGNOSTIC),
+    "rated_input_current": (DirectCurrentSensorBase, "Rated Input Current", EntityCategory.DIAGNOSTIC),
+    "rated_ac_output_voltage": (DirectVoltageSensorBase, "Rated AC Output Voltage", EntityCategory.DIAGNOSTIC),
+    "rated_output_frequency": (DirectFrequencySensorBase, "Rated Output Frequency", EntityCategory.DIAGNOSTIC),
+    "rated_output_current": (DirectCurrentSensorBase, "Rated Output Current", EntityCategory.DIAGNOSTIC),
+    "rated_output_apparent_power": (DirectApparentPowerSensorBase, "Rated Output Apparent Power", EntityCategory.DIAGNOSTIC),
+    "rated_output_active_power": (DirectWattSensorBase, "Rated Output Active Power", EntityCategory.DIAGNOSTIC),
+    "rated_battery_voltage": (DirectVoltageSensorBase, "Rated Battery Voltage", EntityCategory.DIAGNOSTIC),
+    "low_battery_to_ac_bypass_voltage": (DirectVoltageSensorBase, "Low Battery to AC Bypass Voltage", None),
+    "shut_down_battery_voltage": (DirectVoltageSensorBase, "Shut Down Battery Voltage", None),
+    "bulk_charging_voltage": (DirectVoltageSensorBase, "Bulk Charging Voltage", None),
+    "float_charging_voltage": (DirectVoltageSensorBase, "Float Charging Voltage", None),
+    "battery_type": (BatteryTypeSensor, "Battery Type", EntityCategory.DIAGNOSTIC),
+    "max_utility_charging_current": (DirectCurrentSensorBase, "Max Utility Charging Current", None),
+    "max_charging_current": (DirectCurrentSensorBase, "Max Charging Current", None),
+    "ac_input_voltage_range": (ACInputVoltageRangeSensor, "AC Input Voltage Range", None),
+    "output_source_priority": (OutputSourcePrioritySensor, "Output Source Priority", None),
+    "charger_source_priority": (ChargerSourcePrioritySensor, "Charger Source Priority", None),
+    "parallel_max_number": (DirectDiagnosticSensorBase, "Parallel Max Number", EntityCategory.DIAGNOSTIC),
+    "reserved_uu": (DirectDiagnosticSensorBase, "Reserved UU", EntityCategory.DIAGNOSTIC),
+    "reserved_v": (DirectDiagnosticSensorBase, "Reserved V", EntityCategory.DIAGNOSTIC),
+    "parallel_mode": (ParallelModeSensor, "Parallel Mode", EntityCategory.DIAGNOSTIC),
+    "high_battery_voltage_to_battery_mode": (DirectVoltageSensorBase, "High Battery Voltage to Battery Mode", None),
+    "solar_work_condition_in_parallel": (DirectDiagnosticSensorBase, "Solar Work Condition In Parallel", EntityCategory.DIAGNOSTIC),
+    "solar_max_charging_power_auto_adjust": (DirectDiagnosticSensorBase, "Solar Max Charging Power Auto Adjust", EntityCategory.DIAGNOSTIC),
+    "rated_battery_capacity": (DirectBatteryCapacitySensorBase, "Rated Battery Capacity", EntityCategory.DIAGNOSTIC),
+    "reserved_b": (DirectDiagnosticSensorBase, "Reserved B", EntityCategory.DIAGNOSTIC),
+    "reserved_ccc": (DirectDiagnosticSensorBase, "Reserved CCC", EntityCategory.DIAGNOSTIC),
 }
 
 
 def generate_qpiri_sensors(inverter_device, coordinator):
-    return [
-        sensor_class(
+    sensors = []
+
+    for data_key, (sensor_class, name_suffix, entity_category) in QPIRI_SENSOR_MAPPING.items():
+        sensor = sensor_class(
             inverter_device=inverter_device,
             coordinator=coordinator,
             data_section="qpiri",
             data_key=data_key,
             name_suffix=name_suffix,
         )
-        for data_key, (sensor_class, name_suffix) in QPIRI_SENSOR_MAPPING.items()
-    ]
+
+        if entity_category is not None:
+            sensor._attr_entity_category = entity_category
+
+        sensors.append(sensor)
+
+    return sensors
 
 
 DIRECT_SENSORS = [

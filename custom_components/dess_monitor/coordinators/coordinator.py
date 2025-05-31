@@ -115,7 +115,7 @@ class MainCoordinator(DataUpdateCoordinator):
                     energy_flow = await safe_call(get_device_energy_flow(token, secret, device), default={})
                     pars = await safe_call(get_device_pars(token, secret, device), default={})
                     ctrl_fields = await safe_call(get_device_ctrl_fields(token, secret, device), default={'field': []})
-                    output_priority = await safe_call(get_inverter_output_priority(token, secret, device), default={})
+                    output_priority = await safe_call(get_inverter_output_priority(token, secret, ctrl_fields, device), default={})
 
                     return pn, {
                         'last_data': last_data,

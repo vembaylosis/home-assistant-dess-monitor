@@ -5,6 +5,8 @@ from homeassistant.helpers.entity_platform import AddEntitiesCallback
 
 from custom_components.dess_monitor.sensors.direct_sensor import DIRECT_SENSORS, generate_qpiri_sensors
 from . import HubConfigEntry
+from .sensors.direct_energy_sensors import DirectInverterOutputEnergySensor, DirectPV2EnergySensor, \
+    DirectPVEnergySensor, DirectBatteryInEnergySensor, DirectBatteryOutEnergySensor, DirectBatteryStateOfChargeSensor
 from .sensors.dynamic_sensor import *
 from .sensors.energy_sensors import *
 from .sensors.init_sensors import *
@@ -28,6 +30,14 @@ async def async_setup_entry(
         if should_add_direct_sensors(config_entry, hub, item):
             new_devices.extend(create_direct_sensors(item, hub.direct_coordinator))
             new_devices.extend(generate_qpiri_sensors(item, hub.direct_coordinator))
+            new_devices.extend([
+                DirectPVEnergySensor(item, hub.direct_coordinator),
+                DirectPV2EnergySensor(item, hub.direct_coordinator),
+                DirectInverterOutputEnergySensor(item, hub.direct_coordinator),
+                DirectBatteryInEnergySensor(item, hub.direct_coordinator),
+                DirectBatteryOutEnergySensor(item, hub.direct_coordinator),
+                # DirectBatteryStateOfChargeSensor(item, hub.direct_coordinator, hass),
+            ])
 
     if new_devices:
         async_add_entities(new_devices)

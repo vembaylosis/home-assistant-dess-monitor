@@ -42,6 +42,13 @@ SENSOR_KEYS_MAP: Dict[str, list[str]] = {
         "bc_output_source_priority",
         "Output priority",
     ],
+    "output_priority_option": [
+        'bse_eybond_ctrl_49',
+        'Output priority',
+        'los_output_source_priority',
+        'bse_output_source_priority',
+        'Output source priority rating'
+    ],
     "charge_priority": [
         "bt_charger_source_priority",
     ],

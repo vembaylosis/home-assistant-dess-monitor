@@ -80,15 +80,7 @@ def resolve_active_load_percentage(data, device_data):
 
 
 def resolve_output_priority(data, device_data):
-    mapper = {
-        'uti': 'Utility', 'utility': 'Utility',
-        'sbu': 'SBU', 'sol': 'Solar', 'solar': 'Solar',
-        'solar first': 'Solar', 'sbu first': 'SBU', 'utility first': 'Utility',
-    }
-    raw = get_sensor_value_simple("output_priority", data, device_data)
-    if raw is None:
-        return None
-    return mapper.get(raw.lower(), None)
+    return data['device_extra']['output_priority']
 
 
 def resolve_charge_priority(data, device_data):

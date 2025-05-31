@@ -172,41 +172,29 @@ async def set_inverter_output_priority(token: str, secret: str, device_data, val
     return await set_ctrl_device_param(token, secret, device_data, param_id, param_value)
 
 
-async def get_inverter_output_priority(token: str, secret: str, device_data):
-    match device_data['devcode']:
-        case 2341:
-            map_param_value = {
-                'Utility first': 'Utility',
-                'Utility': 'Utility',
-                'Solar first': 'Solar',
-                'Solar': 'Solar',
-                'SBU': 'SBU',
-                'SBU first': 'SBU',
-                None: None
-            }
-            # param_value = map_param_value[value]
+async def get_inverter_output_priority(token: str, secret: str, ctrl_fields, device_data):
+    map_param_value = {
+        'UTILITY FIRST': 'Utility',
+        'UTILITY': 'Utility',
+        'SOLAR FIRST': 'Solar',
+        'SOLAR': 'Solar',
+        'SOL': 'Solar',
+        'SBU': 'SBU',
+        'SBU FIRST': 'SBU',
+        'UTI': 'Utility',
+        'SUB': 'SUB',
+        None: None
+    }
 
-            param_id = 'los_output_source_priority'
-        case 2428:
-            map_param_value = {
-                'Utility first': 'Utility',
-                'Utility': 'Utility',
-                'Solar first': 'Solar',
-                'Solar': 'Solar',
-                'SBU': 'SBU',
-                'SBU first': 'SBU',
-                None: None
-            }
-            # param_value = map_param_value[value]
+    entry = get_sensor_value_simple_entry('output_priority_option', ctrl_fields, device_data)
 
-            param_id = 'bse_output_source_priority'
-
-        case _:
-            return
-    result = await get_device_ctrl_value(token, secret, device_data, param_id)
-    if result['val'] not in map_param_value:
+    if entry is None:
         return None
-    return map_param_value[result['val']]
+    param_id, _, _ = entry
+    result = await get_device_ctrl_value(token, secret, device_data, param_id)
+    if result['val'].upper() not in map_param_value:
+        return None
+    return map_param_value[result['val'].upper()]
 
 
 async def get_direct_data(token: str, secret: str, device_data, cmd_name):
