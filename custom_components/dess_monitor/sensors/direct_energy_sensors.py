@@ -19,13 +19,13 @@ class DirectEnergySensorBase(RestoreSensor, DirectTypedSensorBase):
     _sensor_option_display_precision = 0
 
     def __init__(
-        self,
-        inverter_device,
-        coordinator,
-        data_section: str,
-        data_key: str,
-        sensor_suffix: str = "",
-        name_suffix: str = "",
+            self,
+            inverter_device,
+            coordinator,
+            data_section: str,
+            data_key: str,
+            sensor_suffix: str = "",
+            name_suffix: str = "",
     ):
         # Инициализируем как DirectTypedSensorBase (он выставит unique_id и имя)
         super().__init__(
@@ -96,9 +96,9 @@ class DirectEnergySensorBase(RestoreSensor, DirectTypedSensorBase):
         self.async_write_ha_state()
 
 
-
 class DirectPVEnergySensor(DirectEnergySensorBase):
     """Энергия по мощности PV (qpigs['pv_charging_power'])."""
+
     def __init__(self, inverter_device, coordinator):
         super().__init__(
             inverter_device=inverter_device,
@@ -112,6 +112,7 @@ class DirectPVEnergySensor(DirectEnergySensorBase):
 
 class DirectPV2EnergySensor(DirectEnergySensorBase):
     """Энергия по мощности PV2 (qpigs2['pv_current']*['pv_voltage'])."""
+
     def __init__(self, inverter_device, coordinator):
         super().__init__(
             inverter_device=inverter_device,
@@ -137,6 +138,7 @@ class DirectPV2EnergySensor(DirectEnergySensorBase):
 
 class DirectInverterOutputEnergySensor(DirectEnergySensorBase):
     """Энергия по мощности выхода инвертора (qpigs['output_active_power'])."""
+
     def __init__(self, inverter_device, coordinator):
         super().__init__(
             inverter_device=inverter_device,
@@ -150,6 +152,7 @@ class DirectInverterOutputEnergySensor(DirectEnergySensorBase):
 
 class DirectOutputApparentEnergySensor(DirectEnergySensorBase):
     """Энергия по кажущейся мощности (qpigs['output_apparent_power'])."""
+
     def __init__(self, inverter_device, coordinator):
         super().__init__(
             inverter_device=inverter_device,
@@ -160,8 +163,10 @@ class DirectOutputApparentEnergySensor(DirectEnergySensorBase):
             name_suffix="Apparent Power Energy",
         )
 
+
 class DirectBatteryInEnergySensor(DirectEnergySensorBase):
     """Энергия по мощности зарядки батареи (battery_charging_current * battery_voltage)."""
+
     def __init__(self, inverter_device, coordinator):
         super().__init__(
             inverter_device=inverter_device,
@@ -196,6 +201,7 @@ class DirectBatteryInEnergySensor(DirectEnergySensorBase):
 
 class DirectBatteryOutEnergySensor(DirectEnergySensorBase):
     """Энергия по мощности разрядки батареи (battery_discharge_current * battery_voltage)."""
+
     def __init__(self, inverter_device, coordinator):
         super().__init__(
             inverter_device=inverter_device,
@@ -225,7 +231,6 @@ class DirectBatteryOutEnergySensor(DirectEnergySensorBase):
 
         # Обновляем state (накопленную энергию), даже если power оказался None
         self.async_write_ha_state()
-
 
 
 class DirectBatteryStateOfChargeSensor(RestoreSensor, DirectTypedSensorBase):
@@ -275,7 +280,9 @@ class DirectBatteryStateOfChargeSensor(RestoreSensor, DirectTypedSensorBase):
     def available(self) -> bool:
         # Доступен только если восстановлен и емкость задана положительно
         bulk_voltage = self.get_bulk_charging_voltage()
-        return super().available and self._restored and (self._battery_capacity_wh is not None and self._battery_capacity_wh > 0) and (bulk_voltage is not None)
+        return super().available and self._restored and (
+                    self._battery_capacity_wh is not None and self._battery_capacity_wh > 0) and (
+                    bulk_voltage is not None)
 
     @callback
     def _handle_battery_capacity_change(self, event):
@@ -310,6 +317,16 @@ class DirectBatteryStateOfChargeSensor(RestoreSensor, DirectTypedSensorBase):
             pass
         return None
 
+    def get_floating_charging_voltage(self) -> float | None:
+        try:
+            qpiri = self.data.get("qpiri", {})
+            voltage = float(qpiri.get("float_charging_voltage"))
+            if voltage > 0:
+                return voltage
+        except (KeyError, ValueError, TypeError):
+            pass
+        return None
+
     def update_soc(self, current_power: float, current_voltage: float):
         if self._battery_capacity_wh is None or self._battery_capacity_wh <= 0:
             # Не считаем, если емкость не задана
@@ -318,6 +335,7 @@ class DirectBatteryStateOfChargeSensor(RestoreSensor, DirectTypedSensorBase):
             return
 
         bulk_voltage = self.get_bulk_charging_voltage()
+        floating_voltage = self.get_floating_charging_voltage()
         if bulk_voltage is None:
             self._attr_native_value = None
             self.async_write_ha_state()
@@ -335,7 +353,8 @@ class DirectBatteryStateOfChargeSensor(RestoreSensor, DirectTypedSensorBase):
 
         max_capacity = self._battery_capacity_wh
 
-        if current_voltage >= bulk_voltage:
+        if current_voltage >= bulk_voltage or (
+                current_voltage >= floating_voltage and 0 < current_power <= 2 * bulk_voltage):
             soc_percent = 100.0
             self._accumulated_energy_wh = max_capacity
         else:
