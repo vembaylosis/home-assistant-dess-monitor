@@ -132,7 +132,7 @@ class DirectPV2EnergySensor(DirectEnergySensorBase):
             power = None
 
         if power is not None:
-            self.update_energy(power)
+            self.update_energy_value(power)
         self.async_write_ha_state()
 
 
