@@ -32,9 +32,12 @@ Tested with devcodes:
  - 2376
  - 2428
 
-If you have problems with the setup, create an issue with information about your inverter model and the datalogger devcode
+If you have problems with the setup, create an issue with information about your inverter model, datalogger devcode and diagnostic file
+
+MQTT Standalone application client (for NodeRED integrations or other) - https://github.com/Antoxa1081/dess-monitor-mqtt
 
 <img src="https://github.com/user-attachments/assets/9e35a387-8049-414a-b0f6-b55dc914e489" width="60%"/> 
 <img src="https://github.com/user-attachments/assets/b3d86bd4-2e7f-4d81-9d47-2ce4719f1bdd" width="40%"/> 
 <img src="https://github.com/user-attachments/assets/07b09a9a-f7b3-4715-82ec-f8a2ccffe70e" width="20%"/> 
 <img src="https://github.com/user-attachments/assets/51cd2196-7d98-4218-8e0c-49ca13c3c1cc" width="20%"/>
+
