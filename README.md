@@ -32,7 +32,10 @@ Tested with devcodes:
  - 2376
  - 2428
 
+**Minimum HA version 2024.11 for integration to work**
+
 If you have problems with the setup, create an issue with information about your inverter model, datalogger devcode and diagnostic file
+
 
 MQTT Standalone application client (for NodeRED integrations or other) - https://github.com/Antoxa1081/dess-monitor-mqtt
 
