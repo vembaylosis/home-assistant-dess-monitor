@@ -29,7 +29,7 @@ class DirectCoordinator(DataUpdateCoordinator):
             name="Direct request sensor",
             config_entry=config_entry,
             # Polling interval. Will only be polled if there are subscribers.
-            update_interval=timedelta(seconds=10),
+            update_interval=timedelta(seconds=30),
             # Set always_update to `False` if the data returned from the
             # api can be compared via `__eq__` to avoid duplicate updates
             # being dispatched to listeners
