@@ -1,62 +1,62 @@
 {
-    "err": 0,
-    "desc": "ERR_NONE",
-    "dat": {
-        "brand": 0,
-        "status": 0,
-        "date": "2025-03-07 02:19:10",
-        "bt_status": [
-            {
-                "par": "bt_battery_capacity",
-                "val": "100.0000",
-                "unit": "%",
-                "status": -1
-            },
-            {
-                "par": "battery_active_power",
-                "val": "0",
-                "status": 0
-            }
-        ],
-        "pv_status": [
-            {
-                "par": "pv_output_power",
-                "val": "0.0020",
-                "unit": "kW",
-                "status": 1
-            }
-        ],
-        "gd_status": [
-            {
-                "par": "grid_active_power",
-                "val": "0",
-                "status": 1
-            }
-        ],
-        "bc_status": [
-            {
-                "par": "load_active_power",
-                "val": "0.1620",
-                "unit": "kW",
-                "status": -1
-            }
-        ],
-        "ol_status": [
-            {
-                "par": "oil_output_power",
-                "val": "0",
-                "status": 0
-            }
-        ],
-        "we_status": [
-            {
-                "par": "wind_output_power",
-                "val": "0",
-                "status": 0
-            }
-        ],
-        "mi_status": [],
-        "mt_status": [],
-        "wp_status": []
-    }
+  "err": 0,
+  "desc": "ERR_NONE",
+  "dat": {
+    "brand": 0,
+    "status": 0,
+    "date": "2025-03-07 02:19:10",
+    "bt_status": [
+      {
+        "par": "bt_battery_capacity",
+        "val": "100.0000",
+        "unit": "%",
+        "status": -1
+      },
+      {
+        "par": "battery_active_power",
+        "val": "0",
+        "status": 0
+      }
+    ],
+    "pv_status": [
+      {
+        "par": "pv_output_power",
+        "val": "0.0020",
+        "unit": "kW",
+        "status": 1
+      }
+    ],
+    "gd_status": [
+      {
+        "par": "grid_active_power",
+        "val": "0",
+        "status": 1
+      }
+    ],
+    "bc_status": [
+      {
+        "par": "load_active_power",
+        "val": "0.1620",
+        "unit": "kW",
+        "status": -1
+      }
+    ],
+    "ol_status": [
+      {
+        "par": "oil_output_power",
+        "val": "0",
+        "status": 0
+      }
+    ],
+    "we_status": [
+      {
+        "par": "wind_output_power",
+        "val": "0",
+        "status": 0
+      }
+    ],
+    "mi_status": [],
+    "mt_status": [],
+    "wp_status": []
+  }
 }

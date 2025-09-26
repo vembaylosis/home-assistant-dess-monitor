@@ -1,489 +1,489 @@
 {
-    "err": 0,
-    "desc": "ERR_NONE",
-    "dat": {
-        "field": [
-            {
-                "id": "bse_eybond_ctrl_48",
-                "name": "Output Mode",
-                "item": [
-                    {
-                        "key": "0",
-                        "val": "Single"
-                    },
-                    {
-                        "key": "1",
-                        "val": "Parallel"
-                    },
-                    {
-                        "key": "2",
-                        "val": "3P1"
-                    },
-                    {
-                        "key": "3",
-                        "val": "3P2"
-                    },
-                    {
-                        "key": "4",
-                        "val": "3P3"
-                    },
-                    {
-                        "key": "5",
-                        "val": "2P1"
-                    },
-                    {
-                        "key": "6",
-                        "val": "2P2"
-                    }
-                ]
-            },
-            {
-                "id": "bse_eybond_ctrl_49",
-                "name": "Output priority",
-                "item": [
-                    {
-                        "key": "0",
-                        "val": "UTI"
-                    },
-                    {
-                        "key": "1",
-                        "val": "SOL"
-                    },
-                    {
-                        "key": "2",
-                        "val": "SBU"
-                    },
-                    {
-                        "key": "3",
-                        "val": "SUB"
-                    }
-                ]
-            },
-            {
-                "id": "bse_eybond_ctrl_50",
-                "name": "Input Voltage Range",
-                "item": [
-                    {
-                        "key": "0",
-                        "val": "Appliances"
-                    },
-                    {
-                        "key": "1",
-                        "val": "UPS"
-                    },
-                    {
-                        "key": "2",
-                        "val": "Generator"
-                    }
-                ]
-            },
-            {
-                "id": "sys_eybond_ctrl_51",
-                "name": "Buzzer Mode",
-                "item": [
-                    {
-                        "key": "0",
-                        "val": "Beeps OFF"
-                    },
-                    {
-                        "key": "1",
-                        "val": "Beeps ON"
-                    },
-                    {
-                        "key": "2",
-                        "val": "Mute when input source changes"
-                    },
-                    {
-                        "key": "3",
-                        "val": "Beeps only in fault mode"
-                    }
-                ]
-            },
-            {
-                "id": "sys_eybond_ctrl_52",
-                "name": "Beeps While Primary Source Is Interrupted",
-                "item": [
-                    {
-                        "key": "0",
-                        "val": "Beeps OFF"
-                    },
-                    {
-                        "key": "1",
-                        "val": "Beeps ON"
-                    }
-                ]
-            },
-            {
-                "id": "sys_eybond_ctrl_53",
-                "name": "Backlight Control",
-                "item": [
-                    {
-                        "key": "0",
-                        "val": "Backlight Timing Off"
-                    },
-                    {
-                        "key": "1",
-                        "val": "Backlight On"
-                    }
-                ]
-            },
-            {
-                "id": "sys_eybond_ctrl_54",
-                "name": "Auto Return To Default Display Screen",
-                "item": [
-                    {
-                        "key": "0",
-                        "val": "Stay At Latest Screen"
-                    },
-                    {
-                        "key": "1",
-                        "val": "Return To Default Display Screen"
-                    }
-                ]
-            },
-            {
-                "id": "sys_eybond_ctrl_55",
-                "name": "Power Saving Mode",
-                "item": [
-                    {
-                        "key": "0",
-                        "val": "Saving Mode Disable"
-                    },
-                    {
-                        "key": "1",
-                        "val": "Saving Mode Enable"
-                    }
-                ]
-            },
-            {
-                "id": "sys_eybond_ctrl_56",
-                "name": "Auto Restart When Overload Occurs",
-                "item": [
-                    {
-                        "key": "0",
-                        "val": "Auto Restart Disable"
-                    },
-                    {
-                        "key": "1",
-                        "val": "Auto Restart Enable"
-                    }
-                ]
-            },
-            {
-                "id": "sys_eybond_ctrl_57",
-                "name": "Auto Restart When Over Temperature Occurs",
-                "item": [
-                    {
-                        "key": "0",
-                        "val": "Auto Restart Disable"
-                    },
-                    {
-                        "key": "1",
-                        "val": "Auto Restart Enable"
-                    }
-                ]
-            },
-            {
-                "id": "sys_eybond_ctrl_58",
-                "name": "Overload Bypass",
-                "item": [
-                    {
-                        "key": "0",
-                        "val": "Disable"
-                    },
-                    {
-                        "key": "1",
-                        "val": "Enable"
-                    }
-                ]
-            },
-            {
-                "id": "sys_eybond_ctrl_60",
-                "name": "Battery EQ Mode",
-                "item": [
-                    {
-                        "key": "0",
-                        "val": "Disable"
-                    },
-                    {
-                        "key": "1",
-                        "val": "Enable"
-                    }
-                ]
-            },
-            {
-                "id": "bse_eybond_ctrl_64",
-                "name": "Output Voltage",
-                "unit": "V",
-                "item": [
-                    {
-                        "key": "220.0",
-                        "val": "220Vac"
-                    },
-                    {
-                        "key": "230.0",
-                        "val": "230Vac"
-                    },
-                    {
-                        "key": "240.0",
-                        "val": "240Vac"
-                    }
-                ]
-            },
-            {
-                "id": "bse_eybond_ctrl_65",
-                "name": "Output Frequency",
-                "unit": "HZ",
-                "item": [
-                    {
-                        "key": "50.00",
-                        "val": "50Hz"
-                    },
-                    {
-                        "key": "60.00",
-                        "val": "60Hz"
-                    }
-                ]
-            },
-            {
-                "id": "bat_eybond_ctrl_83",
-                "name": "SOC recovery value of battery discharge in mains mode",
-                "unit": "%"
-            },
-            {
-                "id": "bat_eybond_ctrl_82",
-                "name": "Low DC Protection SOC In Grid Mode",
-                "unit": "%"
-            },
-            {
-                "id": "bat_eybond_ctrl_84",
-                "name": "Off grid mode battery discharge SOC protection value",
-                "unit": "%"
-            },
-            {
-                "id": "bat_eybond_ctrl_66",
-                "name": "Battery Type",
-                "item": [
-                    {
-                        "key": "0",
-                        "val": "AGM"
-                    },
-                    {
-                        "key": "1",
-                        "val": "FLD"
-                    },
-                    {
-                        "key": "2",
-                        "val": "USER"
-                    },
-                    {
-                        "key": "3",
-                        "val": "Li1"
-                    },
-                    {
-                        "key": "4",
-                        "val": "Li2"
-                    },
-                    {
-                        "key": "5",
-                        "val": "Li3"
-                    },
-                    {
-                        "key": "6",
-                        "val": "Li4"
-                    }
-                ]
-            },
-            {
-                "id": "bat_eybond_ctrl_67",
-                "name": "High DC Protection Voltage",
-                "unit": "V",
-                "hint": "60.4~66V"
-            },
-            {
-                "id": "bat_eybond_ctrl_68",
-                "name": "Bulk Charging Voltage (C.V Voltage)",
-                "unit": "V",
-                "hint": "56.4~59.0V"
-            },
-            {
-                "id": "bat_eybond_ctrl_69",
-                "name": "Floating Charging Voltage",
-                "unit": "V",
-                "hint": "48.0~56.4V"
-            },
-            {
-                "id": "bat_eybond_ctrl_70",
-                "name": "Recovery Voltage Back To Mains Mode",
-                "unit": "V",
-                "hint": "54.4~48.0V"
-            },
-            {
-                "id": "bat_eybond_ctrl_71",
-                "name": "Low DC Protection Voltage In Mains Mode",
-                "unit": "V",
-                "hint": "0.0~44.0V"
-            },
-            {
-                "id": "bat_eybond_ctrl_73",
-                "name": "Low DC Protection Voltage In Off-Grid Mode",
-                "unit": "V",
-                "hint": "40.0~46.0V"
-            },
-            {
-                "id": "bat_eybond_ctrl_74",
-                "name": "Time from C.V to Floating Charge",
-                "unit": "min",
-                "hint": "1~900min"
-            },
-            {
-                "id": "bat_eybond_ctrl_75",
-                "name": "Charger Source Priority",
-                "item": [
-                    {
-                        "key": "0",
-                        "val": "Utility First"
-                    },
-                    {
-                        "key": "1",
-                        "val": "PV First"
-                    },
-                    {
-                        "key": "2",
-                        "val": "PV Is At The Same Level As Utility"
-                    },
-                    {
-                        "key": "3",
-                        "val": "Only PV"
-                    }
-                ]
-            },
-            {
-                "id": "bat_eybond_ctrl_76",
-                "name": "Max.Charging Current",
-                "unit": "A",
-                "hint": "25.0~80A"
-            },
-            {
-                "id": "bat_eybond_ctrl_77",
-                "name": "Max.AC.Charging Current",
-                "unit": "A",
-                "hint": "2~50.0A"
-            },
-            {
-                "id": "bat_eybond_ctrl_78",
-                "name": "EQ Charing Voltage",
-                "unit": "V",
-                "hint": "56.4~61.0V"
-            },
-            {
-                "id": "bat_eybond_ctrl_79",
-                "name": "EQ Charing Time",
-                "unit": "min",
-                "hint": "0-900min"
-            },
-            {
-                "id": "bat_eybond_ctrl_80",
-                "name": "EQ Timeout Exit time",
-                "unit": "min",
-                "hint": "0-900min"
-            },
-            {
-                "id": "bat_eybond_ctrl_81",
-                "name": "EQ Interval Time",
-                "unit": "day",
-                "hint": "1-90"
-            },
-            {
-                "id": "sys_eybond_ctrl_98",
-                "name": "Boot method",
-                "item": [
-                    {
-                        "key": "0",
-                        "val": "Can be powered on locally or remotely"
-                    },
-                    {
-                        "key": "1",
-                        "val": "Only boot locally"
-                    },
-                    {
-                        "key": "2",
-                        "val": "Only remote boot"
-                    }
-                ]
-            },
-            {
-                "id": "sys_eybond_ctrl_82",
-                "name": "Auto AC Output",
-                "item": [
-                    {
-                        "key": "0",
-                        "val": "Disable With Power Switch OFF"
-                    },
-                    {
-                        "key": "1",
-                        "val": "Enable With Power Switch ON"
-                    }
-                ]
-            },
-            {
-                "id": "sys_forced_eq_charging",
-                "name": "Forced EQ Charging",
-                "hint": "手动强制Eq充电一次",
-                "item": [
-                    {
-                        "key": "1",
-                        "val": "Forced EQ Charging Once"
-                    }
-                ]
-            },
-            {
-                "id": "sys_exit_fault_mode",
-                "name": "Exit Fault Mode",
-                "hint": "退出故障锁定状态",
-                "item": [
-                    {
-                        "key": "1",
-                        "val": "Exit Fault Mode"
-                    }
-                ]
-            },
-            {
-                "id": "sys_eybond_ctrl_95",
-                "name": "Clear Record",
-                "hint": "清除记录",
-                "item": [
-                    {
-                        "key": "170",
-                        "val": "Clear Record"
-                    }
-                ]
-            },
-            {
-                "id": "sys_eybond_ctrl_97",
-                "name": "Output control",
-                "item": [
-                    {
-                        "key": "0",
-                        "val": "OFF"
-                    },
-                    {
-                        "key": "1",
-                        "val": "ON"
-                    }
-                ]
-            },
-            {
-                "id": "sys_eybond_ctrl_96",
-                "name": "Reset User Settings",
-                "hint": "重置用户参数",
-                "item": [
-                    {
-                        "key": "170",
-                        "val": "Reset User Settings"
-                    }
-                ]
-            }
+  "err": 0,
+  "desc": "ERR_NONE",
+  "dat": {
+    "field": [
+      {
+        "id": "bse_eybond_ctrl_48",
+        "name": "Output Mode",
+        "item": [
+          {
+            "key": "0",
+            "val": "Single"
+          },
+          {
+            "key": "1",
+            "val": "Parallel"
+          },
+          {
+            "key": "2",
+            "val": "3P1"
+          },
+          {
+            "key": "3",
+            "val": "3P2"
+          },
+          {
+            "key": "4",
+            "val": "3P3"
+          },
+          {
+            "key": "5",
+            "val": "2P1"
+          },
+          {
+            "key": "6",
+            "val": "2P2"
+          }
         ]
-    }
+      },
+      {
+        "id": "bse_eybond_ctrl_49",
+        "name": "Output priority",
+        "item": [
+          {
+            "key": "0",
+            "val": "UTI"
+          },
+          {
+            "key": "1",
+            "val": "SOL"
+          },
+          {
+            "key": "2",
+            "val": "SBU"
+          },
+          {
+            "key": "3",
+            "val": "SUB"
+          }
+        ]
+      },
+      {
+        "id": "bse_eybond_ctrl_50",
+        "name": "Input Voltage Range",
+        "item": [
+          {
+            "key": "0",
+            "val": "Appliances"
+          },
+          {
+            "key": "1",
+            "val": "UPS"
+          },
+          {
+            "key": "2",
+            "val": "Generator"
+          }
+        ]
+      },
+      {
+        "id": "sys_eybond_ctrl_51",
+        "name": "Buzzer Mode",
+        "item": [
+          {
+            "key": "0",
+            "val": "Beeps OFF"
+          },
+          {
+            "key": "1",
+            "val": "Beeps ON"
+          },
+          {
+            "key": "2",
+            "val": "Mute when input source changes"
+          },
+          {
+            "key": "3",
+            "val": "Beeps only in fault mode"
+          }
+        ]
+      },
+      {
+        "id": "sys_eybond_ctrl_52",
+        "name": "Beeps While Primary Source Is Interrupted",
+        "item": [
+          {
+            "key": "0",
+            "val": "Beeps OFF"
+          },
+          {
+            "key": "1",
+            "val": "Beeps ON"
+          }
+        ]
+      },
+      {
+        "id": "sys_eybond_ctrl_53",
+        "name": "Backlight Control",
+        "item": [
+          {
+            "key": "0",
+            "val": "Backlight Timing Off"
+          },
+          {
+            "key": "1",
+            "val": "Backlight On"
+          }
+        ]
+      },
+      {
+        "id": "sys_eybond_ctrl_54",
+        "name": "Auto Return To Default Display Screen",
+        "item": [
+          {
+            "key": "0",
+            "val": "Stay At Latest Screen"
+          },
+          {
+            "key": "1",
+            "val": "Return To Default Display Screen"
+          }
+        ]
+      },
+      {
+        "id": "sys_eybond_ctrl_55",
+        "name": "Power Saving Mode",
+        "item": [
+          {
+            "key": "0",
+            "val": "Saving Mode Disable"
+          },
+          {
+            "key": "1",
+            "val": "Saving Mode Enable"
+          }
+        ]
+      },
+      {
+        "id": "sys_eybond_ctrl_56",
+        "name": "Auto Restart When Overload Occurs",
+        "item": [
+          {
+            "key": "0",
+            "val": "Auto Restart Disable"
+          },
+          {
+            "key": "1",
+            "val": "Auto Restart Enable"
+          }
+        ]
+      },
+      {
+        "id": "sys_eybond_ctrl_57",
+        "name": "Auto Restart When Over Temperature Occurs",
+        "item": [
+          {
+            "key": "0",
+            "val": "Auto Restart Disable"
+          },
+          {
+            "key": "1",
+            "val": "Auto Restart Enable"
+          }
+        ]
+      },
+      {
+        "id": "sys_eybond_ctrl_58",
+        "name": "Overload Bypass",
+        "item": [
+          {
+            "key": "0",
+            "val": "Disable"
+          },
+          {
+            "key": "1",
+            "val": "Enable"
+          }
+        ]
+      },
+      {
+        "id": "sys_eybond_ctrl_60",
+        "name": "Battery EQ Mode",
+        "item": [
+          {
+            "key": "0",
+            "val": "Disable"
+          },
+          {
+            "key": "1",
+            "val": "Enable"
+          }
+        ]
+      },
+      {
+        "id": "bse_eybond_ctrl_64",
+        "name": "Output Voltage",
+        "unit": "V",
+        "item": [
+          {
+            "key": "220.0",
+            "val": "220Vac"
+          },
+          {
+            "key": "230.0",
+            "val": "230Vac"
+          },
+          {
+            "key": "240.0",
+            "val": "240Vac"
+          }
+        ]
+      },
+      {
+        "id": "bse_eybond_ctrl_65",
+        "name": "Output Frequency",
+        "unit": "HZ",
+        "item": [
+          {
+            "key": "50.00",
+            "val": "50Hz"
+          },
+          {
+            "key": "60.00",
+            "val": "60Hz"
+          }
+        ]
+      },
+      {
+        "id": "bat_eybond_ctrl_83",
+        "name": "SOC recovery value of battery discharge in mains mode",
+        "unit": "%"
+      },
+      {
+        "id": "bat_eybond_ctrl_82",
+        "name": "Low DC Protection SOC In Grid Mode",
+        "unit": "%"
+      },
+      {
+        "id": "bat_eybond_ctrl_84",
+        "name": "Off grid mode battery discharge SOC protection value",
+        "unit": "%"
+      },
+      {
+        "id": "bat_eybond_ctrl_66",
+        "name": "Battery Type",
+        "item": [
+          {
+            "key": "0",
+            "val": "AGM"
+          },
+          {
+            "key": "1",
+            "val": "FLD"
+          },
+          {
+            "key": "2",
+            "val": "USER"
+          },
+          {
+            "key": "3",
+            "val": "Li1"
+          },
+          {
+            "key": "4",
+            "val": "Li2"
+          },
+          {
+            "key": "5",
+            "val": "Li3"
+          },
+          {
+            "key": "6",
+            "val": "Li4"
+          }
+        ]
+      },
+      {
+        "id": "bat_eybond_ctrl_67",
+        "name": "High DC Protection Voltage",
+        "unit": "V",
+        "hint": "60.4~66V"
+      },
+      {
+        "id": "bat_eybond_ctrl_68",
+        "name": "Bulk Charging Voltage (C.V Voltage)",
+        "unit": "V",
+        "hint": "56.4~59.0V"
+      },
+      {
+        "id": "bat_eybond_ctrl_69",
+        "name": "Floating Charging Voltage",
+        "unit": "V",
+        "hint": "48.0~56.4V"
+      },
+      {
+        "id": "bat_eybond_ctrl_70",
+        "name": "Recovery Voltage Back To Mains Mode",
+        "unit": "V",
+        "hint": "54.4~48.0V"
+      },
+      {
+        "id": "bat_eybond_ctrl_71",
+        "name": "Low DC Protection Voltage In Mains Mode",
+        "unit": "V",
+        "hint": "0.0~44.0V"
+      },
+      {
+        "id": "bat_eybond_ctrl_73",
+        "name": "Low DC Protection Voltage In Off-Grid Mode",
+        "unit": "V",
+        "hint": "40.0~46.0V"
+      },
+      {
+        "id": "bat_eybond_ctrl_74",
+        "name": "Time from C.V to Floating Charge",
+        "unit": "min",
+        "hint": "1~900min"
+      },
+      {
+        "id": "bat_eybond_ctrl_75",
+        "name": "Charger Source Priority",
+        "item": [
+          {
+            "key": "0",
+            "val": "Utility First"
+          },
+          {
+            "key": "1",
+            "val": "PV First"
+          },
+          {
+            "key": "2",
+            "val": "PV Is At The Same Level As Utility"
+          },
+          {
+            "key": "3",
+            "val": "Only PV"
+          }
+        ]
+      },
+      {
+        "id": "bat_eybond_ctrl_76",
+        "name": "Max.Charging Current",
+        "unit": "A",
+        "hint": "25.0~80A"
+      },
+      {
+        "id": "bat_eybond_ctrl_77",
+        "name": "Max.AC.Charging Current",
+        "unit": "A",
+        "hint": "2~50.0A"
+      },
+      {
+        "id": "bat_eybond_ctrl_78",
+        "name": "EQ Charing Voltage",
+        "unit": "V",
+        "hint": "56.4~61.0V"
+      },
+      {
+        "id": "bat_eybond_ctrl_79",
+        "name": "EQ Charing Time",
+        "unit": "min",
+        "hint": "0-900min"
+      },
+      {
+        "id": "bat_eybond_ctrl_80",
+        "name": "EQ Timeout Exit time",
+        "unit": "min",
+        "hint": "0-900min"
+      },
+      {
+        "id": "bat_eybond_ctrl_81",
+        "name": "EQ Interval Time",
+        "unit": "day",
+        "hint": "1-90"
+      },
+      {
+        "id": "sys_eybond_ctrl_98",
+        "name": "Boot method",
+        "item": [
+          {
+            "key": "0",
+            "val": "Can be powered on locally or remotely"
+          },
+          {
+            "key": "1",
+            "val": "Only boot locally"
+          },
+          {
+            "key": "2",
+            "val": "Only remote boot"
+          }
+        ]
+      },
+      {
+        "id": "sys_eybond_ctrl_82",
+        "name": "Auto AC Output",
+        "item": [
+          {
+            "key": "0",
+            "val": "Disable With Power Switch OFF"
+          },
+          {
+            "key": "1",
+            "val": "Enable With Power Switch ON"
+          }
+        ]
+      },
+      {
+        "id": "sys_forced_eq_charging",
+        "name": "Forced EQ Charging",
+        "hint": "手动强制Eq充电一次",
+        "item": [
+          {
+            "key": "1",
+            "val": "Forced EQ Charging Once"
+          }
+        ]
+      },
+      {
+        "id": "sys_exit_fault_mode",
+        "name": "Exit Fault Mode",
+        "hint": "退出故障锁定状态",
+        "item": [
+          {
+            "key": "1",
+            "val": "Exit Fault Mode"
+          }
+        ]
+      },
+      {
+        "id": "sys_eybond_ctrl_95",
+        "name": "Clear Record",
+        "hint": "清除记录",
+        "item": [
+          {
+            "key": "170",
+            "val": "Clear Record"
+          }
+        ]
+      },
+      {
+        "id": "sys_eybond_ctrl_97",
+        "name": "Output control",
+        "item": [
+          {
+            "key": "0",
+            "val": "OFF"
+          },
+          {
+            "key": "1",
+            "val": "ON"
+          }
+        ]
+      },
+      {
+        "id": "sys_eybond_ctrl_96",
+        "name": "Reset User Settings",
+        "hint": "重置用户参数",
+        "item": [
+          {
+            "key": "170",
+            "val": "Reset User Settings"
+          }
+        ]
+      }
+    ]
+  }
 }

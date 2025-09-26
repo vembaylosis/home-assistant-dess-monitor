@@ -1,9 +1,7 @@
 {
   "domain": "dess_monitor",
   "name": "DESS Monitor",
-  "codeowners": [
-    "@Antoxa1081"
-  ],
+  "codeowners": ["@Antoxa1081"],
   "config_flow": true,
   "dependencies": [],
   "documentation": "https://github.com/Antoxa1081/home-assistant-dess-monitor/blob/main/README.md",

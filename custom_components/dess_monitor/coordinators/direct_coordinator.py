@@ -15,6 +15,7 @@ _LOGGER = logging.getLogger(__name__)
 
 class DirectCoordinator(DataUpdateCoordinator):
     """My custom coordinator."""
+
     devices = []
     auth = None
     auth_issued_at = None
@@ -32,8 +33,7 @@ class DirectCoordinator(DataUpdateCoordinator):
             # Set always_update to `False` if the data returned from the
             # api can be compared via `__eq__` to avoid duplicate updates
             # being dispatched to listeners
-            always_update=False
-
+            always_update=False,
         )
         # self.my_api = my_api
         # self._device: MyDevice | None = None
@@ -50,7 +50,7 @@ class DirectCoordinator(DataUpdateCoordinator):
         await self.create_auth()
 
         self.devices = await self.get_active_devices()
-        print('direct coordinator setup devices count: ', len(self.devices))
+        print("direct coordinator setup devices count: ", len(self.devices))
 
         # token = self.auth['token']
         # secret = self.auth['secret']
@@ -74,17 +74,20 @@ class DirectCoordinator(DataUpdateCoordinator):
     async def check_auth(self):
         now = int(datetime.now().timestamp())
         # print(self.auth)
-        if self.auth_issued_at is None or (now - (self.auth_issued_at + (self.auth['expire'])) <= 3600):
+        if self.auth_issued_at is None or (
+            now - (self.auth_issued_at + (self.auth["expire"])) <= 3600
+        ):
             await self.create_auth()
 
     async def get_active_devices(self):
-        devices = await get_devices(self.auth['token'], self.auth['secret'])
-        active_devices = [device for device in devices if device['status'] != 1]
+        devices = await get_devices(self.auth["token"], self.auth["secret"])
+        active_devices = [device for device in devices if device["status"] != 1]
         devices_filter = self.config_entry.options.get("devices", [])
 
         if devices_filter:
             selected_devices = [
-                device for device in active_devices
+                device
+                for device in active_devices
                 if str(device.get("pn")) in devices_filter
             ]
         else:
@@ -96,27 +99,32 @@ class DirectCoordinator(DataUpdateCoordinator):
             # Note: asyncio.TimeoutError and aiohttp.ClientError are already
             # handled by the data update coordinator.
             async with async_timeout.timeout(30):
-                if self.config_entry.options.get('direct_request_protocol', False) is not True:
+                if (
+                    self.config_entry.options.get("direct_request_protocol", False)
+                    is not True
+                ):
                     return None
-                print('direct coordinator update data devices')
+                print("direct coordinator update data devices")
 
                 await self.check_auth()
                 self.devices = await self.get_active_devices()
 
-                token = self.auth['token']
-                secret = self.auth['secret']
+                token = self.auth["token"]
+                secret = self.auth["secret"]
 
                 async def fetch_device_data(device):
-                    qpigs = await get_direct_data(token, secret, device, 'QPIGS')
-                    qpigs2 = await get_direct_data(token, secret, device, 'QPIGS2')
-                    qpiri = await get_direct_data(token, secret, device, 'QPIRI')
-                    return device['pn'], {
-                        'qpigs': qpigs,
-                        'qpigs2': qpigs2,
-                        'qpiri': qpiri
+                    qpigs = await get_direct_data(token, secret, device, "QPIGS")
+                    qpigs2 = await get_direct_data(token, secret, device, "QPIGS2")
+                    qpiri = await get_direct_data(token, secret, device, "QPIRI")
+                    return device["pn"], {
+                        "qpigs": qpigs,
+                        "qpigs2": qpigs2,
+                        "qpiri": qpiri,
                     }
 
-                data_map = dict(await asyncio.gather(*map(fetch_device_data, self.devices)))
+                data_map = dict(
+                    await asyncio.gather(*map(fetch_device_data, self.devices))
+                )
                 return data_map
                 # return
         except TimeoutError as err:

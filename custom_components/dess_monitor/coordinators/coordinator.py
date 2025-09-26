@@ -38,8 +38,7 @@ class MainCoordinator(DataUpdateCoordinator):
             # Set always_update to `False` if the data returned from the
             # api can be compared via `__eq__` to avoid duplicate updates
             # being dispatched to listeners
-            always_update=False
-
+            always_update=False,
         )
         # self.my_api = my_api
         # self._device: MyDevice | None = None
@@ -56,7 +55,7 @@ class MainCoordinator(DataUpdateCoordinator):
         await self.create_auth()
 
         self.devices = await self.get_active_devices()
-        print('coordinator setup devices count: ', len(self.devices))
+        print("coordinator setup devices count: ", len(self.devices))
 
         # token = self.auth['token']
         # secret = self.auth['secret']
@@ -80,17 +79,27 @@ class MainCoordinator(DataUpdateCoordinator):
     async def check_auth(self):
         now = int(datetime.now().timestamp())
         # print(self.auth)
-        if self.auth_issued_at is None or (now - (self.auth_issued_at + (self.auth['expire'])) <= 3600):
+        if self.auth_issued_at is None or (
+            now - (self.auth_issued_at + (self.auth["expire"])) <= 3600
+        ):
             await self.create_auth()
 
     async def get_active_devices(self):
-        devices = await get_devices(self.auth['token'], self.auth['secret'])
-        active_devices = [device for device in devices if device['status'] != 1]
-        selected_devices = [device for device in active_devices if
-                            str(device['pn']) in self.config_entry.options["devices"] or str(device['uid']) in
-                            self.config_entry.options["devices"]] if (
-                "devices" in self.config_entry.options and len(
-            self.config_entry.options["devices"]) > 0) else active_devices
+        devices = await get_devices(self.auth["token"], self.auth["secret"])
+        active_devices = [device for device in devices if device["status"] != 1]
+        selected_devices = (
+            [
+                device
+                for device in active_devices
+                if str(device["pn"]) in self.config_entry.options["devices"]
+                or str(device["uid"]) in self.config_entry.options["devices"]
+            ]
+            if (
+                "devices" in self.config_entry.options
+                and len(self.config_entry.options["devices"]) > 0
+            )
+            else active_devices
+        )
         return selected_devices
 
     async def _async_update_data(self):
@@ -101,31 +110,45 @@ class MainCoordinator(DataUpdateCoordinator):
         """
         try:
             async with async_timeout.timeout(120):
-                print('coordinator update data devices')
+                print("coordinator update data devices")
 
                 await self.check_auth()
                 self.devices = await self.get_active_devices()
 
-                token = self.auth['token']
-                secret = self.auth['secret']
+                token = self.auth["token"]
+                secret = self.auth["secret"]
 
                 async def build_device_data(device):
-                    pn = device['pn']
-                    last_data = await safe_call(get_device_last_data(token, secret, device), default={})
-                    energy_flow = await safe_call(get_device_energy_flow(token, secret, device), default={})
-                    pars = await safe_call(get_device_pars(token, secret, device), default={})
-                    ctrl_fields = await safe_call(get_device_ctrl_fields(token, secret, device), default={'field': []})
-                    output_priority = await safe_call(get_inverter_output_priority(token, secret, ctrl_fields, device), default={})
+                    pn = device["pn"]
+                    last_data = await safe_call(
+                        get_device_last_data(token, secret, device), default={}
+                    )
+                    energy_flow = await safe_call(
+                        get_device_energy_flow(token, secret, device), default={}
+                    )
+                    pars = await safe_call(
+                        get_device_pars(token, secret, device), default={}
+                    )
+                    ctrl_fields = await safe_call(
+                        get_device_ctrl_fields(token, secret, device),
+                        default={"field": []},
+                    )
+                    output_priority = await safe_call(
+                        get_inverter_output_priority(
+                            token, secret, ctrl_fields, device
+                        ),
+                        default={},
+                    )
 
                     return pn, {
-                        'last_data': last_data,
-                        'energy_flow': energy_flow,
-                        'pars': pars,
-                        'device': device,
-                        'ctrl_fields': ctrl_fields.get('field', []),
-                        'device_extra': {
-                            'output_priority': output_priority,
-                        }
+                        "last_data": last_data,
+                        "energy_flow": energy_flow,
+                        "pars": pars,
+                        "device": device,
+                        "ctrl_fields": ctrl_fields.get("field", []),
+                        "device_extra": {
+                            "output_priority": output_priority,
+                        },
                     }
 
                 tasks = [build_device_data(device) for device in self.devices]

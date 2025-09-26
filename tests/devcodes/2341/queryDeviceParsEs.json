@@ -1,50 +1,50 @@
 {
-    "err": 0,
-    "desc": "ERR_NONE",
-    "dat": {
-        "parameter": [
-            {
-                "par": "bt_battery_charging_current",
-                "name": "Battery Charging Current",
-                "val": "0.0000",
-                "unit": "A"
-            },
-            {
-                "par": "bt_battery_discharge_current",
-                "name": "Battery Discharge Current",
-                "val": "22.0000",
-                "unit": "A"
-            },
-            {
-                "par": "bt_battery_voltage",
-                "name": "Battery Voltage",
-                "val": "49.4000",
-                "unit": "V"
-            },
-            {
-                "par": "bt_total_charge_current",
-                "name": "Max Total Charge Current",
-                "val": "100.0000",
-                "unit": "A"
-            },
-            {
-                "par": "output_power",
-                "name": "Output Active Power",
-                "val": "0.9430",
-                "unit": "kW"
-            },
-            {
-                "par": "pv_input_voltage",
-                "name": "PV Input Voltage",
-                "val": "0.0000",
-                "unit": "V"
-            },
-            {
-                "par": "pv_output_power",
-                "name": "PV Input Power",
-                "val": "0.0000",
-                "unit": "kW"
-            }
-        ]
-    }
+  "err": 0,
+  "desc": "ERR_NONE",
+  "dat": {
+    "parameter": [
+      {
+        "par": "bt_battery_charging_current",
+        "name": "Battery Charging Current",
+        "val": "0.0000",
+        "unit": "A"
+      },
+      {
+        "par": "bt_battery_discharge_current",
+        "name": "Battery Discharge Current",
+        "val": "22.0000",
+        "unit": "A"
+      },
+      {
+        "par": "bt_battery_voltage",
+        "name": "Battery Voltage",
+        "val": "49.4000",
+        "unit": "V"
+      },
+      {
+        "par": "bt_total_charge_current",
+        "name": "Max Total Charge Current",
+        "val": "100.0000",
+        "unit": "A"
+      },
+      {
+        "par": "output_power",
+        "name": "Output Active Power",
+        "val": "0.9430",
+        "unit": "kW"
+      },
+      {
+        "par": "pv_input_voltage",
+        "name": "PV Input Voltage",
+        "val": "0.0000",
+        "unit": "V"
+      },
+      {
+        "par": "pv_output_power",
+        "name": "PV Input Power",
+        "val": "0.0000",
+        "unit": "kW"
+      }
+    ]
+  }
 }

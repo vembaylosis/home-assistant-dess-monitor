@@ -1,105 +1,105 @@
 {
-    "err": 0,
-    "desc": "ERR_NONE",
-    "dat": [
-        {
-            "devcode": 2341,
-            "uid": 4318210,
-            "optional": "bc_output_voltage",
-            "name": "Output Voltage",
-            "uint": "V",
-            "order": 1000,
-            "visable": false
-        },
-        {
-            "devcode": 2341,
-            "uid": 4318210,
-            "optional": "bt_battery_capacity",
-            "name": "Battery Capacity",
-            "uint": "%",
-            "order": 1000,
-            "visable": false
-        },
-        {
-            "devcode": 2341,
-            "uid": 4318210,
-            "optional": "bt_battery_charging_current",
-            "name": "Battery Charging Current",
-            "uint": "A",
-            "order": 1000,
-            "visable": true
-        },
-        {
-            "devcode": 2341,
-            "uid": 4318210,
-            "optional": "bt_battery_discharge_current",
-            "name": "Battery Discharge Current",
-            "uint": "A",
-            "order": 1000,
-            "visable": true
-        },
-        {
-            "devcode": 2341,
-            "uid": 4318210,
-            "optional": "bt_battery_voltage",
-            "name": "Battery Voltage",
-            "uint": "V",
-            "order": 1000,
-            "visable": true
-        },
-        {
-            "devcode": 2341,
-            "uid": 4318210,
-            "optional": "bt_total_charge_current",
-            "name": "Max Total Charge Current",
-            "uint": "A",
-            "order": 1000,
-            "visable": true
-        },
-        {
-            "devcode": 2341,
-            "uid": 4318210,
-            "optional": "gd_ac_input_frequency",
-            "name": "AC Input Frequency",
-            "uint": "Hz",
-            "order": 1000,
-            "visable": false
-        },
-        {
-            "devcode": 2341,
-            "uid": 4318210,
-            "optional": "gd_ac_input_voltage",
-            "name": "AC Input Voltage",
-            "uint": "V",
-            "order": 1000,
-            "visable": false
-        },
-        {
-            "devcode": 2341,
-            "uid": 4318210,
-            "optional": "output_power",
-            "name": "Output Active Power",
-            "uint": "kW",
-            "order": 1000,
-            "visable": true
-        },
-        {
-            "devcode": 2341,
-            "uid": 4318210,
-            "optional": "pv_input_voltage",
-            "name": "PV Input Voltage",
-            "uint": "V",
-            "order": 1000,
-            "visable": true
-        },
-        {
-            "devcode": 2341,
-            "uid": 4318210,
-            "optional": "pv_output_power",
-            "name": "PV Input Power",
-            "uint": "kW",
-            "order": 1000,
-            "visable": true
-        }
-    ]
+  "err": 0,
+  "desc": "ERR_NONE",
+  "dat": [
+    {
+      "devcode": 2341,
+      "uid": 4318210,
+      "optional": "bc_output_voltage",
+      "name": "Output Voltage",
+      "uint": "V",
+      "order": 1000,
+      "visable": false
+    },
+    {
+      "devcode": 2341,
+      "uid": 4318210,
+      "optional": "bt_battery_capacity",
+      "name": "Battery Capacity",
+      "uint": "%",
+      "order": 1000,
+      "visable": false
+    },
+    {
+      "devcode": 2341,
+      "uid": 4318210,
+      "optional": "bt_battery_charging_current",
+      "name": "Battery Charging Current",
+      "uint": "A",
+      "order": 1000,
+      "visable": true
+    },
+    {
+      "devcode": 2341,
+      "uid": 4318210,
+      "optional": "bt_battery_discharge_current",
+      "name": "Battery Discharge Current",
+      "uint": "A",
+      "order": 1000,
+      "visable": true
+    },
+    {
+      "devcode": 2341,
+      "uid": 4318210,
+      "optional": "bt_battery_voltage",
+      "name": "Battery Voltage",
+      "uint": "V",
+      "order": 1000,
+      "visable": true
+    },
+    {
+      "devcode": 2341,
+      "uid": 4318210,
+      "optional": "bt_total_charge_current",
+      "name": "Max Total Charge Current",
+      "uint": "A",
+      "order": 1000,
+      "visable": true
+    },
+    {
+      "devcode": 2341,
+      "uid": 4318210,
+      "optional": "gd_ac_input_frequency",
+      "name": "AC Input Frequency",
+      "uint": "Hz",
+      "order": 1000,
+      "visable": false
+    },
+    {
+      "devcode": 2341,
+      "uid": 4318210,
+      "optional": "gd_ac_input_voltage",
+      "name": "AC Input Voltage",
+      "uint": "V",
+      "order": 1000,
+      "visable": false
+    },
+    {
+      "devcode": 2341,
+      "uid": 4318210,
+      "optional": "output_power",
+      "name": "Output Active Power",
+      "uint": "kW",
+      "order": 1000,
+      "visable": true
+    },
+    {
+      "devcode": 2341,
+      "uid": 4318210,
+      "optional": "pv_input_voltage",
+      "name": "PV Input Voltage",
+      "uint": "V",
+      "order": 1000,
+      "visable": true
+    },
+    {
+      "devcode": 2341,
+      "uid": 4318210,
+      "optional": "pv_output_power",
+      "name": "PV Input Power",
+      "uint": "kW",
+      "order": 1000,
+      "visable": true
+    }
+  ]
 }

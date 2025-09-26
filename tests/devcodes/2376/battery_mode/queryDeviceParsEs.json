@@ -1,50 +1,50 @@
 {
-    "err": 0,
-    "desc": "ERR_NONE",
-    "dat": {
-        "parameter": [
-            {
-                "par": "bc_eybond_read_23",
-                "name": "Output Voltage",
-                "val": "230.0000",
-                "unit": "V"
-            },
-            {
-                "par": "bc_load_active_power",
-                "name": "Output Active Power",
-                "val": "2.1400",
-                "unit": "kW"
-            },
-            {
-                "par": "bt_battery_capacity",
-                "name": "Battery percentage",
-                "val": "73.0000",
-                "unit": "%"
-            },
-            {
-                "par": "bt_eybond_read_28",
-                "name": "Battery Voltage",
-                "val": "51.6000",
-                "unit": "V"
-            },
-            {
-                "par": "bt_eybond_read_29",
-                "name": "Battery Current",
-                "val": "-43.4000",
-                "unit": "A"
-            },
-            {
-                "par": "gd_eybond_read_45",
-                "name": "AC charging current",
-                "val": "0.0000",
-                "unit": "A"
-            },
-            {
-                "par": "gd_grid_active_power",
-                "name": "Grid Power",
-                "val": "0.0000",
-                "unit": "kW"
-            }
-        ]
-    }
+  "err": 0,
+  "desc": "ERR_NONE",
+  "dat": {
+    "parameter": [
+      {
+        "par": "bc_eybond_read_23",
+        "name": "Output Voltage",
+        "val": "230.0000",
+        "unit": "V"
+      },
+      {
+        "par": "bc_load_active_power",
+        "name": "Output Active Power",
+        "val": "2.1400",
+        "unit": "kW"
+      },
+      {
+        "par": "bt_battery_capacity",
+        "name": "Battery percentage",
+        "val": "73.0000",
+        "unit": "%"
+      },
+      {
+        "par": "bt_eybond_read_28",
+        "name": "Battery Voltage",
+        "val": "51.6000",
+        "unit": "V"
+      },
+      {
+        "par": "bt_eybond_read_29",
+        "name": "Battery Current",
+        "val": "-43.4000",
+        "unit": "A"
+      },
+      {
+        "par": "gd_eybond_read_45",
+        "name": "AC charging current",
+        "val": "0.0000",
+        "unit": "A"
+      },
+      {
+        "par": "gd_grid_active_power",
+        "name": "Grid Power",
+        "val": "0.0000",
+        "unit": "kW"
+      }
+    ]
+  }
 }

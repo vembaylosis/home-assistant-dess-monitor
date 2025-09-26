@@ -1,7 +1,10 @@
 # DESS Monitor Cloud Home Assistant integration
+
 ## known from mobile applications as SmartESS, EnergyMate or Fronus Solar
+
 ## also known as https://www.eybond.com
-## or web monitor service https://www.dessmonitor.com 
+
+## or web monitor service https://www.dessmonitor.com
 
 ## Installation via HACS (recommended)
 
@@ -13,10 +16,10 @@ If you don't find the integration in your HACS store, use this button to add the
 
 [hacs-repo-badge]: https://my.home-assistant.io/badges/hacs_repository.svg
 
-
 [![Open your Home Assistant instance and open a repository inside the Home Assistant Community Store.](https://my.home-assistant.io/badges/hacs_repository.svg)](https://my.home-assistant.io/redirect/hacs_repository/?owner=Antoxa1081&repository=home-assistant-dess-monitor&category=Integration)
 
 Or use following procedure for HACS 2.0 or later to add the custom repository:
+
 1. Open the [HACS](https://hacs.xyz) panel in your Home Assistant frontend.
 2. Click the three dots in the top-right corner and select "Custom Repositories."
 3. Add a new custom repository via the Popup dialog:
@@ -28,14 +31,14 @@ Or use following procedure for HACS 2.0 or later to add the custom repository:
 
 Once installed, use Add Integration -> DESS Monitor.
 Tested with devcodes:
- - 2341
- - 2376
- - 2428
+
+- 2341
+- 2376
+- 2428
 
 **Minimum HA version 2024.11 for integration to work**
 
 If you have problems with the setup, create an issue with information about your inverter model, datalogger devcode and diagnostic file
-
 
 MQTT Standalone application client (for NodeRED integrations or other) - https://github.com/Antoxa1081/dess-monitor-mqtt
 
@@ -43,4 +46,3 @@ MQTT Standalone application client (for NodeRED integrations or other) - https:/
 <img src="https://github.com/user-attachments/assets/b3d86bd4-2e7f-4d81-9d47-2ce4719f1bdd" width="40%"/> 
 <img src="https://github.com/user-attachments/assets/07b09a9a-f7b3-4715-82ec-f8a2ccffe70e" width="20%"/> 
 <img src="https://github.com/user-attachments/assets/51cd2196-7d98-4218-8e0c-49ca13c3c1cc" width="20%"/>
-

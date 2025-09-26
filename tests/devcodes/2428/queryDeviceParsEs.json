@@ -1,44 +1,44 @@
 {
-    "err": 0,
-    "desc": "ERR_NONE",
-    "dat": {
-        "parameter": [
-            {
-                "par": "bt_battery_voltage",
-                "name": "Battery voltage",
-                "val": "27.2000",
-                "unit": "V"
-            },
-            {
-                "par": "bt_charging_current",
-                "name": "Battery charging current",
-                "val": "2.0000",
-                "unit": "A"
-            },
-            {
-                "par": "bt_discharge_current",
-                "name": "Battery discharge current",
-                "val": "0.0000",
-                "unit": "A"
-            },
-            {
-                "par": "gd_grid_voltage",
-                "name": "Grid voltage",
-                "val": "225.7000",
-                "unit": "V"
-            },
-            {
-                "par": "load_active_power",
-                "name": "AC output active power",
-                "val": "0.1620",
-                "unit": "kW"
-            },
-            {
-                "par": "pv_input_current",
-                "name": "PV Input current for battery",
-                "val": "0.0000",
-                "unit": "A"
-            }
-        ]
-    }
+  "err": 0,
+  "desc": "ERR_NONE",
+  "dat": {
+    "parameter": [
+      {
+        "par": "bt_battery_voltage",
+        "name": "Battery voltage",
+        "val": "27.2000",
+        "unit": "V"
+      },
+      {
+        "par": "bt_charging_current",
+        "name": "Battery charging current",
+        "val": "2.0000",
+        "unit": "A"
+      },
+      {
+        "par": "bt_discharge_current",
+        "name": "Battery discharge current",
+        "val": "0.0000",
+        "unit": "A"
+      },
+      {
+        "par": "gd_grid_voltage",
+        "name": "Grid voltage",
+        "val": "225.7000",
+        "unit": "V"
+      },
+      {
+        "par": "load_active_power",
+        "name": "AC output active power",
+        "val": "0.1620",
+        "unit": "kW"
+      },
+      {
+        "par": "pv_input_current",
+        "name": "PV Input current for battery",
+        "val": "0.0000",
+        "unit": "A"
+      }
+    ]
+  }
 }

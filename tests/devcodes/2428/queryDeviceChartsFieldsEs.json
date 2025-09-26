@@ -1,87 +1,87 @@
 {
-    "err": 0,
-    "desc": "ERR_NONE",
-    "dat": [
-        {
-            "devcode": 2428,
-            "uid": 4318210,
-            "optional": "bc_output_voltage",
-            "name": "AC output voltage",
-            "uint": "V",
-            "order": 1000,
-            "visable": false
-        },
-        {
-            "devcode": 2428,
-            "uid": 4318210,
-            "optional": "bt_battery_voltage",
-            "name": "Battery voltage",
-            "uint": "V",
-            "order": 1000,
-            "visable": true
-        },
-        {
-            "devcode": 2428,
-            "uid": 4318210,
-            "optional": "bt_charging_current",
-            "name": "Battery charging current",
-            "uint": "A",
-            "order": 1000,
-            "visable": true
-        },
-        {
-            "devcode": 2428,
-            "uid": 4318210,
-            "optional": "bt_discharge_current",
-            "name": "Battery discharge current",
-            "uint": "A",
-            "order": 1000,
-            "visable": true
-        },
-        {
-            "devcode": 2428,
-            "uid": 4318210,
-            "optional": "gd_grid_frequency",
-            "name": "Grid frequency",
-            "uint": "Hz",
-            "order": 1000,
-            "visable": false
-        },
-        {
-            "devcode": 2428,
-            "uid": 4318210,
-            "optional": "gd_grid_voltage",
-            "name": "Grid voltage",
-            "uint": "V",
-            "order": 1000,
-            "visable": true
-        },
-        {
-            "devcode": 2428,
-            "uid": 4318210,
-            "optional": "load_active_power",
-            "name": "AC output active power",
-            "uint": "kW",
-            "order": 1000,
-            "visable": true
-        },
-        {
-            "devcode": 2428,
-            "uid": 4318210,
-            "optional": "pv_input_current",
-            "name": "PV Input current for battery",
-            "uint": "A",
-            "order": 1000,
-            "visable": true
-        },
-        {
-            "devcode": 2428,
-            "uid": 4318210,
-            "optional": "pv_voltage",
-            "name": "PV Input voltage",
-            "uint": "V",
-            "order": 1000,
-            "visable": false
-        }
-    ]
+  "err": 0,
+  "desc": "ERR_NONE",
+  "dat": [
+    {
+      "devcode": 2428,
+      "uid": 4318210,
+      "optional": "bc_output_voltage",
+      "name": "AC output voltage",
+      "uint": "V",
+      "order": 1000,
+      "visable": false
+    },
+    {
+      "devcode": 2428,
+      "uid": 4318210,
+      "optional": "bt_battery_voltage",
+      "name": "Battery voltage",
+      "uint": "V",
+      "order": 1000,
+      "visable": true
+    },
+    {
+      "devcode": 2428,
+      "uid": 4318210,
+      "optional": "bt_charging_current",
+      "name": "Battery charging current",
+      "uint": "A",
+      "order": 1000,
+      "visable": true
+    },
+    {
+      "devcode": 2428,
+      "uid": 4318210,
+      "optional": "bt_discharge_current",
+      "name": "Battery discharge current",
+      "uint": "A",
+      "order": 1000,
+      "visable": true
+    },
+    {
+      "devcode": 2428,
+      "uid": 4318210,
+      "optional": "gd_grid_frequency",
+      "name": "Grid frequency",
+      "uint": "Hz",
+      "order": 1000,
+      "visable": false
+    },
+    {
+      "devcode": 2428,
+      "uid": 4318210,
+      "optional": "gd_grid_voltage",
+      "name": "Grid voltage",
+      "uint": "V",
+      "order": 1000,
+      "visable": true
+    },
+    {
+      "devcode": 2428,
+      "uid": 4318210,
+      "optional": "load_active_power",
+      "name": "AC output active power",
+      "uint": "kW",
+      "order": 1000,
+      "visable": true
+    },
+    {
+      "devcode": 2428,
+      "uid": 4318210,
+      "optional": "pv_input_current",
+      "name": "PV Input current for battery",
+      "uint": "A",
+      "order": 1000,
+      "visable": true
+    },
+    {
+      "devcode": 2428,
+      "uid": 4318210,
+      "optional": "pv_voltage",
+      "name": "PV Input voltage",
+      "uint": "V",
+      "order": 1000,
+      "visable": false
+    }
+  ]
 }
