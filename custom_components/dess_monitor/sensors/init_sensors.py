@@ -25,6 +25,10 @@ class SensorBase(CoordinatorEntity, SensorEntity):
         super().__init__(coordinator)
         self._inverter_device = inverter_device
 
+    async def async_added_to_hass(self) -> None:
+        await super().async_added_to_hass()
+        self._handle_coordinator_update()
+
     @property
     def device_info(self) -> DeviceInfo:
         return {
@@ -316,3 +320,10 @@ class InverterComebackBatteryVoltageSensor(ValueResolvingSensor):
             1,
             EntityCategory.DIAGNOSTIC
         )
+
+
+class InverterLastSampleTimeSensor(ValueResolvingSensor):
+    def __init__(self, inverter_device, coordinator):
+        super().__init__(inverter_device, coordinator, "Last Sample Time", "last_sample_time",
+                         resolve_last_sample_time, SensorDeviceClass.TIMESTAMP, None,
+                         entity_category=EntityCategory.DIAGNOSTIC)

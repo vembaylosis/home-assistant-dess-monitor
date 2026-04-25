@@ -1,48 +1,61 @@
 from __future__ import annotations
 
+from typing import Any
+
 from homeassistant.core import HomeAssistant
 
 from custom_components.dess_monitor.coordinators.coordinator import MainCoordinator
 from custom_components.dess_monitor.coordinators.direct_coordinator import DirectCoordinator
+from custom_components.dess_monitor.sdk import DessmonitorClient
 
 
 class Hub:
     manufacturer = "DESS Monitor"
 
-    def __init__(self, hass: HomeAssistant, username: str, coordinator: MainCoordinator = None,
-                 direct_coordinator1: DirectCoordinator = None) -> None:
-        self.auth = None
+    def __init__(
+        self,
+        hass: HomeAssistant,
+        username: str,
+        client: DessmonitorClient,
+        coordinator: MainCoordinator,
+        direct_coordinator: DirectCoordinator,
+    ) -> None:
         self._username = username
         self._hass = hass
         self._name = username
+        self._client = client
         self.coordinator = coordinator
-        self.direct_coordinator = direct_coordinator1
+        self.direct_coordinator = direct_coordinator
         self._id = username.lower()
-        self.items = []
+        self.items: list[InverterDevice] = []
 
     @property
     def hub_id(self) -> str:
         return self._id
 
     @property
+    def client(self) -> DessmonitorClient:
+        return self._client
+
+    @property
     def online(self) -> bool:
         return bool(self.coordinator and self.coordinator.last_update_success)
 
-    async def init(self):
-        devices = self.coordinator.devices
-        for device in devices:
-            inverter_device = InverterDevice(f"{device['pn']}", f"{device['devalias']}", device, self)
-            self.items.append(inverter_device)
+    async def init(self) -> None:
+        for device in self.coordinator.devices:
+            self.items.append(
+                InverterDevice(f"{device['pn']}", f"{device['devalias']}", device, self)
+            )
 
 
 class InverterDevice:
 
-    def __init__(self, inverter_pn: str, name: str, device_data, hub: Hub) -> None:
+    def __init__(self, inverter_pn: str, name: str, device_data: dict[str, Any], hub: Hub) -> None:
         self._id = inverter_pn
         self.hub = hub
         self.device_data = device_data
         self.name = name
-        self.firmware_version = f"0.0.1"
+        self.firmware_version = "0.0.1"
         self.model = "DESS Device"
 
     @property

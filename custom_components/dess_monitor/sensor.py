@@ -62,6 +62,7 @@ def create_static_sensors(item, coordinator):
 
         # Inverter sensors
         InverterStatusSensor,
+        InverterLastSampleTimeSensor,
         InverterOutputPrioritySensor,
         InverterOutputVoltageSensor,
         InverterOutputPowerSensor,

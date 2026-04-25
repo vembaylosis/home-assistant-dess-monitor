@@ -7,9 +7,10 @@ from typing import Any
 import voluptuous as vol
 from homeassistant import config_entries, exceptions
 from homeassistant.core import HomeAssistant, callback
+from homeassistant.helpers.aiohttp_client import async_get_clientsession
 from homeassistant.helpers.selector import selector
 
-from .api import auth_user, get_devices
+from .sdk import Credentials, DessmonitorClient
 from .const import (  # pylint:disable=unused-import
     DOMAIN,
     CONF_MAIN_UPDATE_INTERVAL,
@@ -63,13 +64,21 @@ async def validate_input(hass: HomeAssistant, data: dict) -> dict[str, Any]:
     # The dummy hub provides a `test_connection` method to ensure it's working
     # as expected
 
-    # result = await hub.init()
     password_hash = hashlib.sha1(data["password"].encode()).hexdigest()
+    client = DessmonitorClient(
+        credentials=Credentials(username=data["username"], password_hash=password_hash),
+        http_session=async_get_clientsession(hass),
+    )
     try:
-        auth = await auth_user(data["username"], password_hash)
-        return {"title": data["username"], 'auth': auth, 'password_hash': password_hash}
-    except Exception as e:
+        await client.auth.login()
+        devices = await client.devices.list()
+    except Exception:
         raise InvalidAuth
+    return {
+        "title": data["username"],
+        "password_hash": password_hash,
+        "devices": devices,
+    }
     # if not result:
     #     # If there is an error, raise an exception to notify HA that there was a
     #     # problem. The UI will also show there was a problem
@@ -127,8 +136,7 @@ class ConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
                 self._dynamic_settings = user_input['dynamic_settings']
                 self._direct_request_protocol = user_input['direct_request_protocol']
                 self._raw_sensors = user_input['raw_sensors']
-                devices = await get_devices(info['auth']['token'], info['auth']['secret'])
-                active_devices = [device for device in devices if device['status'] != 1]
+                active_devices = [device for device in info['devices'] if device['status'] != 1]
                 self._devices = active_devices
                 return await self.async_step_select_devices()
                 # return self.async_create_entry(title=info["title"], data={
@@ -205,8 +213,11 @@ class OptionsFlow(config_entries.OptionsFlow):
         # Get login data from the config entry
         username = self._config_entry.data["username"]
         password_hash = self._config_entry.data["password_hash"]
-        auth = await auth_user(username, password_hash)
-        devices = await get_devices(auth['token'], auth['secret'])
+        client = DessmonitorClient(
+            credentials=Credentials(username=username, password_hash=password_hash),
+            http_session=async_get_clientsession(self.hass),
+        )
+        devices = await client.devices.list()
         active_devices = [device for device in devices if device['status'] != 1]
         self._devices = active_devices
 

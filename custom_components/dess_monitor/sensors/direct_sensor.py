@@ -19,6 +19,10 @@ class DirectSensorBase(CoordinatorEntity, SensorEntity):
         super().__init__(coordinator)
         self._inverter_device = inverter_device
 
+    async def async_added_to_hass(self) -> None:
+        await super().async_added_to_hass()
+        self._handle_coordinator_update()
+
     @property
     def device_info(self) -> DeviceInfo:
         """Information about this entity/device."""

@@ -1,8 +1,8 @@
 from typing import Any, Dict, Optional
 
-from custom_components.dess_monitor.api import set_ctrl_device_param, get_device_ctrl_value, send_device_direct_command
 from custom_components.dess_monitor.api.commands.direct_commands import decode_direct_response, get_command_hex
 from custom_components.dess_monitor.api.resolvers.data_keys_map import SENSOR_KEYS_MAP
+from custom_components.dess_monitor.sdk import DessmonitorClient, DeviceIdentity
 
 
 def resolve_param(data, where, case_insensitive=False, find_all=False, default=None, root_keys=None):
@@ -155,42 +155,34 @@ def get_sensor_value_simple_entry(
     return None
 
 
-async def set_inverter_output_priority(token: str, secret: str, device_data, value: str):
+async def set_inverter_output_priority(
+    client: DessmonitorClient,
+    device_data: Dict[str, Any],
+    value: str,
+) -> Optional[Dict[str, Any]]:
     match device_data['devcode']:
         case 2341:
-            map_param_value = {
-                'Utility': '0',
-                'Solar': '1',
-                'SBU': '2'
-            }
-            param_value = map_param_value[value]
-
+            map_param_value = {'Utility': '0', 'Solar': '1', 'SBU': '2'}
             param_id = 'los_output_source_priority'
         case 2428:
-            map_param_value = {
-                'Utility': '12336',
-                'Solar': '12337',
-                'SBU': '12338'
-            }
-            param_value = map_param_value[value]
-
+            map_param_value = {'Utility': '12336', 'Solar': '12337', 'SBU': '12338'}
             param_id = 'bse_output_source_priority'
         case 2376:
-            map_param_value = {
-                'Utility': '0',
-                'Solar': '1',
-                'SBU': '2'
-            }
-            param_value = map_param_value[value]
-
+            map_param_value = {'Utility': '0', 'Solar': '1', 'SBU': '2'}
             param_id = 'bse_eybond_ctrl_49'
-
         case _:
-            return
-    return await set_ctrl_device_param(token, secret, device_data, param_id, param_value)
+            return None
+    return await client.control.set_param(
+        DeviceIdentity.from_dict(device_data),
+        param_id,
+        map_param_value[value],
+    )
 
 
-async def get_inverter_output_priority(token: str, secret: str, device_data):
+async def get_inverter_output_priority(
+    client: DessmonitorClient,
+    device_data: Dict[str, Any],
+) -> Optional[str]:
     match device_data['devcode']:
         case 2341:
             map_param_value = {
@@ -200,10 +192,8 @@ async def get_inverter_output_priority(token: str, secret: str, device_data):
                 'Solar': 'Solar',
                 'SBU': 'SBU',
                 'SBU first': 'SBU',
-                None: None
+                None: None,
             }
-            # param_value = map_param_value[value]
-
             param_id = 'los_output_source_priority'
         case 2428:
             map_param_value = {
@@ -213,20 +203,25 @@ async def get_inverter_output_priority(token: str, secret: str, device_data):
                 'Solar': 'Solar',
                 'SBU': 'SBU',
                 'SBU first': 'SBU',
-                None: None
+                None: None,
             }
-            # param_value = map_param_value[value]
-
             param_id = 'bse_output_source_priority'
-
         case _:
-            return
-    result = await get_device_ctrl_value(token, secret, device_data, param_id)
-    if result['val'] not in map_param_value:
+            return None
+    result = await client.control.get_value(DeviceIdentity.from_dict(device_data), param_id)
+    val = result.get('val') if isinstance(result, dict) else None
+    if val not in map_param_value:
         return None
-    return map_param_value[result['val']]
+    return map_param_value[val]
 
 
-async def get_direct_data(token: str, secret: str, device_data, cmd_name):
-    result = await send_device_direct_command(token, secret, device_data, get_command_hex(cmd_name))
+async def get_direct_data(
+    client: DessmonitorClient,
+    device_data: Dict[str, Any],
+    cmd_name: str,
+) -> Any:
+    result = await client.control.send_direct_command(
+        DeviceIdentity.from_dict(device_data),
+        get_command_hex(cmd_name),
+    )
     return decode_direct_response(cmd_name, result['dat'])

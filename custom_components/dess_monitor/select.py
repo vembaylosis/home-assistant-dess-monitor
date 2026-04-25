@@ -8,11 +8,11 @@ from homeassistant.helpers.entity_platform import AddEntitiesCallback
 from homeassistant.helpers.update_coordinator import CoordinatorEntity
 
 from custom_components.dess_monitor import MainCoordinator, HubConfigEntry
-from custom_components.dess_monitor.api import set_ctrl_device_param, get_device_ctrl_value
 from custom_components.dess_monitor.api.helpers import set_inverter_output_priority
 from custom_components.dess_monitor.api.resolvers.data_resolvers import resolve_output_priority
 from custom_components.dess_monitor.const import DOMAIN
 from custom_components.dess_monitor.hub import InverterDevice
+from custom_components.dess_monitor.sdk import DeviceIdentity
 from custom_components.dess_monitor.util import resolve_number_with_unit
 
 SCAN_INTERVAL = timedelta(seconds=30)
@@ -126,11 +126,11 @@ class InverterOutputPrioritySelect(SelectBase):
         if option in self._attr_options:
             # los_output_source_priority Utility, Solar, SBU
             await set_inverter_output_priority(
-                self.coordinator.auth['token'],
-                self.coordinator.auth['secret'],
+                self.coordinator.client,
                 self._inverter_device.device_data,
-                option
+                option,
             )
+            self.coordinator.device_cache.invalidate_output_priority(self._inverter_device.inverter_id)
             self._attr_current_option = option
             await self.coordinator.async_request_refresh()
 
@@ -175,30 +175,27 @@ class InverterDynamicSettingSelect(SelectBase):
             if self._last_updated is None:
                 pass
 
-        if self.coordinator.auth['token'] is not None:
-            response = await get_device_ctrl_value(self.coordinator.auth['token'],
-                                                   self.coordinator.auth['secret'],
-                                                   self._inverter_device.device_data,
-                                                   self._service_param_id)
-
-            if 'err' not in response:
-                val = response['val'] if 'unit' not in self._field_data else str(
-                    resolve_number_with_unit(response['val']))
-                mapped_list = list(map(lambda x: x.lower(), self._attr_options))
-                try:
-                    index = mapped_list.index(val.lower())
-                    real_val = self._attr_options[index]
-                    self._attr_current_option = real_val
-                    self._last_updated = now
-                    self.async_write_ha_state()
-                except ValueError:
-                    if self._last_updated is None:
-                        self._disabled_param = True
-                    self._last_updated = now
-            else:
+        response = await self.coordinator.client.control.get_value(
+            DeviceIdentity.from_dict(self._inverter_device.device_data),
+            self._service_param_id,
+        )
+        if 'err' not in response:
+            val = response['val'] if 'unit' not in self._field_data else str(
+                resolve_number_with_unit(response['val']))
+            mapped_list = list(map(lambda x: x.lower(), self._attr_options))
+            try:
+                index = mapped_list.index(val.lower())
+                real_val = self._attr_options[index]
+                self._attr_current_option = real_val
+                self._last_updated = now
+                self.async_write_ha_state()
+            except ValueError:
                 if self._last_updated is None:
                     self._disabled_param = True
-                # print('get_device_ctrl_value', self._inverter_device.name, self._service_param_id, response)
+                self._last_updated = now
+        else:
+            if self._last_updated is None:
+                self._disabled_param = True
 
     @property
     def available(self) -> bool:
@@ -213,15 +210,11 @@ class InverterDynamicSettingSelect(SelectBase):
         if option in self._attr_options:
             param_id = self._service_param_id
             param_value = self._attr_options_keys[self._attr_options.index(option)]
-            # print('set_ctrl_device_param', param_id, param_value)
-            await set_ctrl_device_param(
-                self.coordinator.auth['token'],
-                self.coordinator.auth['secret'],
-                self._inverter_device.device_data,
+            await self.coordinator.client.control.set_param(
+                DeviceIdentity.from_dict(self._inverter_device.device_data),
                 param_id,
-                param_value
+                param_value,
             )
 
             self._attr_current_option = option
             self.async_write_ha_state()
-            # await self.coordinator.async_request_refresh()

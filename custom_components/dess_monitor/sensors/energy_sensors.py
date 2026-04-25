@@ -28,11 +28,26 @@ class MyEnergySensor(RestoreSensor, SensorBase):
         self._is_restored_value = False
 
     async def async_added_to_hass(self) -> None:
-        if (last_sensor_data := await self.async_get_last_extra_data()) is not None:
-            restored = last_sensor_data.as_dict().get('native_value')
-            self._attr_native_value = 0 if restored is None else restored
-        else:
-            self._attr_native_value = 0
+        candidates: list[float] = []
+
+        last_extra = await self.async_get_last_extra_data()
+        if last_extra is not None:
+            try:
+                raw_extra = last_extra.as_dict().get('native_value')
+                if raw_extra is not None:
+                    candidates.append(float(raw_extra))
+            except (TypeError, ValueError):
+                pass
+
+        last_state = await self.async_get_last_state()
+        if last_state is not None and last_state.state not in (None, "", "unknown", "unavailable"):
+            try:
+                candidates.append(float(last_state.state))
+            except (TypeError, ValueError):
+                pass
+
+        # Use the highest known value to keep TOTAL_INCREASING monotonic across restarts.
+        self._attr_native_value = max(candidates) if candidates else 0
         self._is_restored_value = True
         await super().async_added_to_hass()
 

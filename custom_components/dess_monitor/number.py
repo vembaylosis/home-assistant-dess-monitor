@@ -8,9 +8,9 @@ from homeassistant.helpers.entity_platform import AddEntitiesCallback
 from homeassistant.helpers.update_coordinator import CoordinatorEntity
 
 from custom_components.dess_monitor import MainCoordinator, HubConfigEntry
-from custom_components.dess_monitor.api import set_ctrl_device_param, get_device_ctrl_value
 from custom_components.dess_monitor.const import DOMAIN
 from custom_components.dess_monitor.hub import InverterDevice
+from custom_components.dess_monitor.sdk import DeviceIdentity
 from custom_components.dess_monitor.util import resolve_number_with_unit
 
 SCAN_INTERVAL = timedelta(seconds=30)
@@ -135,31 +135,24 @@ class InverterDynamicSettingNumber(NumberBase):
         else:
             if self._last_updated is None:
                 pass
-        if self.coordinator.auth['token'] is not None:
-            response = await get_device_ctrl_value(self.coordinator.auth['token'],
-                                                   self.coordinator.auth['secret'],
-                                                   self._inverter_device.device_data,
-                                                   self._service_param_id)
-            if 'err' not in response:
-                self._attr_native_value = resolve_number_with_unit(response['val'])
-                self._last_updated = now
-                self.async_write_ha_state()
-            else:
-                print('get_device_ctrl_value', self._inverter_device.name, self._service_param_id, response)
+        response = await self.coordinator.client.control.get_value(
+            DeviceIdentity.from_dict(self._inverter_device.device_data),
+            self._service_param_id,
+        )
+        if 'err' not in response:
+            self._attr_native_value = resolve_number_with_unit(response['val'])
+            self._last_updated = now
+            self.async_write_ha_state()
 
     async def async_set_native_value(self, value: float) -> None:
         """Update the current value."""
         param_id = self._service_param_id
         param_value = str(value)
-        # print('set_ctrl_device_param', param_id, param_value)
-        await set_ctrl_device_param(
-            self.coordinator.auth['token'],
-            self.coordinator.auth['secret'],
-            self._inverter_device.device_data,
+        await self.coordinator.client.control.set_param(
+            DeviceIdentity.from_dict(self._inverter_device.device_data),
             param_id,
-            param_value
+            param_value,
         )
 
         self._attr_native_value = param_value
         self.async_write_ha_state()
-        # await self.coordinator.async_request_refresh()
