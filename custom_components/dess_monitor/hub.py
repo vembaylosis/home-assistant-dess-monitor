@@ -18,18 +18,19 @@ class Hub:
         self.coordinator = coordinator
         self.direct_coordinator = direct_coordinator1
         self._id = username.lower()
-        print('init hub', username)
         self.items = []
-        self.online = True
 
     @property
     def hub_id(self) -> str:
         return self._id
 
+    @property
+    def online(self) -> bool:
+        return bool(self.coordinator and self.coordinator.last_update_success)
+
     async def init(self):
         devices = self.coordinator.devices
         for device in devices:
-            # print(device)
             inverter_device = InverterDevice(f"{device['pn']}", f"{device['devalias']}", device, self)
             self.items.append(inverter_device)
 
@@ -49,7 +50,8 @@ class InverterDevice:
         return self._id
 
     @property
-    def online(self) -> float:
-        if self.hub.coordinator.data is not None and self.inverter_id not in self.hub.coordinator.data:
+    def online(self) -> bool:
+        data = self.hub.coordinator.data
+        if data is None or self.inverter_id not in data:
             return False
         return True

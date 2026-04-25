@@ -5,6 +5,7 @@ import async_timeout
 from homeassistant.core import HomeAssistant
 from homeassistant.helpers.update_coordinator import (
     DataUpdateCoordinator,
+    UpdateFailed,
 )
 
 from custom_components.dess_monitor.api import *
@@ -47,10 +48,12 @@ class DirectCoordinator(DataUpdateCoordinator):
         This method will be called automatically during
         coordinator.async_config_entry_first_refresh.
         """
-        await self.create_auth()
-
-        self.devices = await self.get_active_devices()
-        print('direct coordinator setup devices count: ', len(self.devices))
+        if self.config_entry.options.get('direct_request_protocol', False) is not True:
+            return
+        async with async_timeout.timeout(30):
+            await self.create_auth()
+            self.devices = await self.get_active_devices()
+            _LOGGER.debug("direct coordinator setup devices count: %s", len(self.devices))
 
         # token = self.auth['token']
         # secret = self.auth['secret']
@@ -98,7 +101,7 @@ class DirectCoordinator(DataUpdateCoordinator):
             async with async_timeout.timeout(30):
                 if self.config_entry.options.get('direct_request_protocol', False) is not True:
                     return None
-                print('direct coordinator update data devices')
+                _LOGGER.debug("direct coordinator update data devices")
 
                 await self.check_auth()
                 self.devices = await self.get_active_devices()
@@ -123,7 +126,7 @@ class DirectCoordinator(DataUpdateCoordinator):
             # Raising ConfigEntryAuthFailed will cancel future updates
             # and start a config flow with SOURCE_REAUTH (async_step_reauth)
             raise err
-        except AuthInvalidateError:
+        except AuthInvalidateError as err:
             await self.create_auth()
-            # raise ConfigEntryAuthFailed from err
+            raise UpdateFailed("auth token invalidated, re-issued") from err
         # except ApiError as err:

@@ -5,6 +5,7 @@ import async_timeout
 from homeassistant.core import HomeAssistant
 from homeassistant.helpers.update_coordinator import (
     DataUpdateCoordinator,
+    UpdateFailed,
 )
 
 from custom_components.dess_monitor.api import *
@@ -16,8 +17,8 @@ _LOGGER = logging.getLogger(__name__)
 async def safe_call(coro, default=None):
     try:
         return await coro
-    except Exception as e:
-        print(f"Error during {coro}: {e}")
+    except Exception:
+        _LOGGER.exception("Error while awaiting %s", coro)
         return default
 
 
@@ -53,10 +54,10 @@ class MainCoordinator(DataUpdateCoordinator):
         This method will be called automatically during
         coordinator.async_config_entry_first_refresh.
         """
-        await self.create_auth()
-
-        self.devices = await self.get_active_devices()
-        print('coordinator setup devices count: ', len(self.devices))
+        async with async_timeout.timeout(30):
+            await self.create_auth()
+            self.devices = await self.get_active_devices()
+            _LOGGER.debug("coordinator setup devices count: %s", len(self.devices))
 
         # token = self.auth['token']
         # secret = self.auth['secret']
@@ -101,7 +102,7 @@ class MainCoordinator(DataUpdateCoordinator):
         """
         try:
             async with async_timeout.timeout(120):
-                print('coordinator update data devices')
+                _LOGGER.debug("coordinator update data devices")
 
                 await self.check_auth()
                 self.devices = await self.get_active_devices()
@@ -140,7 +141,7 @@ class MainCoordinator(DataUpdateCoordinator):
             # Raising ConfigEntryAuthFailed will cancel future updates
             # and start a config flow with SOURCE_REAUTH (async_step_reauth)
             raise err
-        except AuthInvalidateError:
+        except AuthInvalidateError as err:
             await self.create_auth()
-            # raise ConfigEntryAuthFailed from err
+            raise UpdateFailed("auth token invalidated, re-issued") from err
         # except ApiError as err:

@@ -16,11 +16,13 @@ headers = {
     'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/133.0.0.0 Safari/537.36',
 }
 
+DEFAULT_HTTP_TIMEOUT = aiohttp.ClientTimeout(total=15, connect=10)
+
 api_semaphore = asyncio.Semaphore(10)
 
 
 async def auth_user(username: str, password_hash: str):
-    async with aiohttp.ClientSession() as session:
+    async with aiohttp.ClientSession(timeout=DEFAULT_HTTP_TIMEOUT) as session:
         # print('auth_user', username)
         params = {
             'action': 'authSource',
@@ -69,7 +71,7 @@ def generate_params_signature(token, secret, params):
 
 
 async def create_auth_api_request(token, secret, params, raise_error=True):
-    async with aiohttp.ClientSession() as session:
+    async with aiohttp.ClientSession(timeout=DEFAULT_HTTP_TIMEOUT) as session:
         async with api_semaphore:
             payload = generate_params_signature(token, secret, params)
             # print(payload)
@@ -94,7 +96,7 @@ class AuthInvalidateError(Exception):
 
 
 async def create_auth_api_remote_request(token, secret, params, raise_error=True):
-    async with aiohttp.ClientSession() as session:
+    async with aiohttp.ClientSession(timeout=DEFAULT_HTTP_TIMEOUT) as session:
         async with api_semaphore:
             payload = generate_params_signature(token, secret, params)
             # print(payload)

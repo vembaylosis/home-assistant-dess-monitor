@@ -9,6 +9,8 @@ from custom_components.dess_monitor.coordinators.coordinator import MainCoordina
 from custom_components.dess_monitor.hub import InverterDevice
 from custom_components.dess_monitor.sensors.init_sensors import SensorBase
 
+ENERGY_GAP_INTERVAL_MULTIPLIER = 5
+
 
 class MyEnergySensor(RestoreSensor, SensorBase):
     _attr_device_class = SensorDeviceClass.ENERGY
@@ -43,11 +45,18 @@ class MyEnergySensor(RestoreSensor, SensorBase):
             return
         now = datetime.now()
         elapsed_seconds = int(now.timestamp() - self._prev_value_timestamp.timestamp())
-        if self._prev_value is not None:
+        max_gap = self._max_integration_gap_seconds()
+        if self._prev_value is not None and elapsed_seconds <= max_gap:
             self._attr_native_value += (elapsed_seconds / 3600) * (self._prev_value + current_value) / 2
         self._prev_value = current_value
         self._prev_value_timestamp = now
         self.async_write_ha_state()
+
+    def _max_integration_gap_seconds(self) -> float:
+        update_interval = getattr(self.coordinator, "update_interval", None)
+        if update_interval is None:
+            return float("inf")
+        return update_interval.total_seconds() * ENERGY_GAP_INTERVAL_MULTIPLIER
 
 
 class FunctionBasedEnergySensor(MyEnergySensor):
