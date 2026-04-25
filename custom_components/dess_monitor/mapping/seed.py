@@ -248,12 +248,19 @@ CANONICAL_METRICS: dict[str, list[ProviderKeyCandidate]] = {
         ProviderKeyCandidate("Grid Frequency", MATCH_FIELD_PAR),
     ],
     "pv_power": [
-        ProviderKeyCandidate("pv_output_power", MATCH_FIELD_PAR),
-        ProviderKeyCandidate("Total PV Power", MATCH_FIELD_ID),
-        ProviderKeyCandidate("bt_input_power", MATCH_FIELD_PAR),
+        # PV1-specific keys go first so dual-MPPT firmwares (devcode 6416, etc.)
+        # report the PV1 leg here, not the total. Single-MPPT devices that only
+        # publish a "total" key fall through to ``pv_output_power`` below.
+        ProviderKeyCandidate("pv_power", MATCH_FIELD_PAR),  # MiC 6.2 (devcode 6416) — PV1 Input Power
+        ProviderKeyCandidate("pv_power", MATCH_FIELD_ID),
         ProviderKeyCandidate("PV1 Charging Power", MATCH_FIELD_ID),
+        ProviderKeyCandidate("PV1 Input Power", MATCH_FIELD_PAR),
         # Anenji 11kw (devcode 6544) — eybond explicit PV1 power.
         ProviderKeyCandidate("eybond_read_43972", MATCH_FIELD_PAR),
+        ProviderKeyCandidate("bt_input_power", MATCH_FIELD_PAR),
+        # Single-MPPT fallback — total ≈ PV1 when no PV2 leg exists.
+        ProviderKeyCandidate("pv_output_power", MATCH_FIELD_PAR),
+        ProviderKeyCandidate("Total PV Power", MATCH_FIELD_ID),
     ],
     "pv_voltage": [
         ProviderKeyCandidate("pv_input_voltage", MATCH_FIELD_PAR),
@@ -284,8 +291,12 @@ CANONICAL_METRICS: dict[str, list[ProviderKeyCandidate]] = {
     "pv2_power": [
         ProviderKeyCandidate("bt_input_power_1", MATCH_FIELD_PAR),
         ProviderKeyCandidate("PV2 Charging power", MATCH_FIELD_ID),
+        ProviderKeyCandidate("PV2 input power", MATCH_FIELD_PAR),
         # Anenji 11kw (devcode 6544) — eybond explicit PV2 power.
         ProviderKeyCandidate("eybond_read_43975", MATCH_FIELD_PAR),
+        # MiC 6.2 (devcode 6416) — PV2 input power lives under a generic
+        # "eybond_read_2" alias on this firmware.
+        ProviderKeyCandidate("eybond_read_2", MATCH_FIELD_PAR),
     ],
     "pv2_voltage": [
         ProviderKeyCandidate("bt_voltage_2", MATCH_FIELD_PAR),
