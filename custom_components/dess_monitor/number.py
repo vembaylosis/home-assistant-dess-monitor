@@ -1,5 +1,9 @@
+import asyncio
+import logging
+import random
 from datetime import timedelta, datetime
 
+import async_timeout
 from homeassistant.components.number import NumberEntity, NumberMode
 from homeassistant.const import EntityCategory
 from homeassistant.core import HomeAssistant
@@ -8,12 +12,24 @@ from homeassistant.helpers.entity_platform import AddEntitiesCallback
 from homeassistant.helpers.update_coordinator import CoordinatorEntity
 
 from custom_components.dess_monitor import MainCoordinator, HubConfigEntry
-from custom_components.dess_monitor.const import DOMAIN
+from custom_components.dess_monitor.const import (
+    DOMAIN,
+    CONF_DYNAMIC_SETTINGS_INTERVAL,
+    DEFAULT_DYNAMIC_SETTINGS_INTERVAL,
+    MIN_DYNAMIC_SETTINGS_INTERVAL,
+    MAX_DYNAMIC_SETTINGS_INTERVAL,
+    DYNAMIC_SETTINGS_API_TIMEOUT,
+)
+from custom_components.dess_monitor.coordinators.coordinator import _clamp
 from custom_components.dess_monitor.hub import InverterDevice
 from custom_components.dess_monitor.sdk import DeviceIdentity
 from custom_components.dess_monitor.util import resolve_number_with_unit
 
-SCAN_INTERVAL = timedelta(seconds=30)
+_LOGGER = logging.getLogger(__name__)
+
+# See ``select.py`` — platform interval is the throttle-check cadence; actual
+# API hit rate is bounded by ``CONF_DYNAMIC_SETTINGS_INTERVAL``.
+SCAN_INTERVAL = timedelta(seconds=60)
 PARALLEL_UPDATES = 1
 
 
@@ -105,10 +121,8 @@ class InverterDynamicSettingNumber(NumberBase):
 
     def __init__(self, inverter_device: InverterDevice, coordinator: MainCoordinator, field_data):
         super().__init__(inverter_device, coordinator)
-        self._last_updated = None
         self._service_param_id = field_data['id']
         # "hint": "25.0~31.5V 48.0~61.0V"
-        # self._id
         self._attr_unique_id = f"{self._inverter_device.inverter_id}_settings_{field_data['id']}"
         self._attr_name = f"{self._inverter_device.name} SET {field_data['name']}"
         self._attr_native_unit_of_measurement = 'V'  # field_data['unit']
@@ -116,33 +130,44 @@ class InverterDynamicSettingNumber(NumberBase):
         self._attr_native_max_value = 100
         self._attr_native_step = 0.1
         self._attr_mode = NumberMode.BOX
-
-    # async def async_added_to_hass(self) -> None:
-    #     """Handle entity which will be added."""
-    #
-    #     if (last_sensor_data := await self.async_get_last_extra_data()) is not None:
-    #         # print('last_sensor_data', last_sensor_data.as_dict())
-    #         self._attr_current_option = (last_sensor_data.as_dict())['native_value']
-    #     else:
-    #         self._attr_current_option = None
-    #     # await self.async_update()
-    #     await super().async_added_to_hass()
-
-    async def async_update(self):
-        now = int(datetime.now().timestamp())
-        if self._last_updated is not None and now - self._last_updated > 300:
-            pass
-        else:
-            if self._last_updated is None:
-                pass
-        response = await self.coordinator.client.control.get_value(
-            DeviceIdentity.from_dict(self._inverter_device.device_data),
-            self._service_param_id,
+        self._poll_interval = _clamp(
+            coordinator.config_entry.options.get(
+                CONF_DYNAMIC_SETTINGS_INTERVAL, DEFAULT_DYNAMIC_SETTINGS_INTERVAL,
+            ),
+            MIN_DYNAMIC_SETTINGS_INTERVAL,
+            MAX_DYNAMIC_SETTINGS_INTERVAL,
         )
-        if 'err' not in response:
-            self._attr_native_value = resolve_number_with_unit(response['val'])
+        # Stagger initial polls across one interval to avoid hammering the API.
+        now = int(datetime.now().timestamp())
+        self._last_updated: int | None = now - random.randint(0, max(self._poll_interval - 1, 1))
+
+    async def async_update(self) -> None:
+        now = int(datetime.now().timestamp())
+        if self._last_updated is not None and (now - self._last_updated) < self._poll_interval:
+            return
+
+        try:
+            async with async_timeout.timeout(DYNAMIC_SETTINGS_API_TIMEOUT):
+                response = await self.coordinator.client.control.get_value(
+                    DeviceIdentity.from_dict(self._inverter_device.device_data),
+                    self._service_param_id,
+                )
+        except (asyncio.TimeoutError, Exception) as err:
+            _LOGGER.debug(
+                "Skipping update of %s: %s", self._attr_unique_id, err,
+            )
+            return
+
+        if not isinstance(response, dict) or 'err' in response:
             self._last_updated = now
-            self.async_write_ha_state()
+            return
+        raw_val = response.get('val')
+        if raw_val is None:
+            self._last_updated = now
+            return
+        self._attr_native_value = resolve_number_with_unit(raw_val)
+        self._last_updated = now
+        self.async_write_ha_state()
 
     async def async_set_native_value(self, value: float) -> None:
         """Update the current value."""

@@ -1,5 +1,9 @@
+import asyncio
+import logging
+import random
 from datetime import timedelta, datetime
 
+import async_timeout
 from homeassistant.components.select import SelectEntity
 from homeassistant.const import EntityCategory
 from homeassistant.core import HomeAssistant, callback
@@ -10,12 +14,26 @@ from homeassistant.helpers.update_coordinator import CoordinatorEntity
 from custom_components.dess_monitor import MainCoordinator, HubConfigEntry
 from custom_components.dess_monitor.api.helpers import set_inverter_output_priority
 from custom_components.dess_monitor.api.resolvers.data_resolvers import resolve_output_priority
-from custom_components.dess_monitor.const import DOMAIN
+from custom_components.dess_monitor.const import (
+    DOMAIN,
+    CONF_DYNAMIC_SETTINGS_INTERVAL,
+    DEFAULT_DYNAMIC_SETTINGS_INTERVAL,
+    MIN_DYNAMIC_SETTINGS_INTERVAL,
+    MAX_DYNAMIC_SETTINGS_INTERVAL,
+    DYNAMIC_SETTINGS_API_TIMEOUT,
+)
+from custom_components.dess_monitor.coordinators.coordinator import _clamp
 from custom_components.dess_monitor.hub import InverterDevice
 from custom_components.dess_monitor.sdk import DeviceIdentity
 from custom_components.dess_monitor.util import resolve_number_with_unit
 
-SCAN_INTERVAL = timedelta(seconds=30)
+_LOGGER = logging.getLogger(__name__)
+
+# Platform-level interval at which HA invokes ``async_update`` on entities with
+# ``should_poll=True``. Each individual call is throttled internally against
+# the user-configured ``CONF_DYNAMIC_SETTINGS_INTERVAL``, so this just bounds
+# how often we *check* the throttle, not how often we hit the cloud.
+SCAN_INTERVAL = timedelta(seconds=60)
 PARALLEL_UPDATES = 1
 
 
@@ -142,7 +160,6 @@ class InverterOutputPrioritySelect(SelectBase):
 
 class InverterDynamicSettingSelect(SelectBase):
     _attr_current_option = None
-    _last_updated = None
     _disabled_param = False
     should_poll = True
     _attr_entity_category = EntityCategory.CONFIG
@@ -160,47 +177,57 @@ class InverterDynamicSettingSelect(SelectBase):
             )
         )
         self._attr_options_keys = list(map(lambda x: x['key'], field_data['item']))
-
-    # async def async_added_to_hass(self) -> None:
-    #     """Handle entity which will be added."""
-    #
-    #     if (last_sensor_data := await self.async_get_last_extra_data()) is not None:
-    #         # print('last_sensor_data', last_sensor_data.as_dict())
-    #         self._attr_current_option = (last_sensor_data.as_dict())['native_value']
-    #     else:
-    #         self._attr_current_option = None
-    #     # await self.async_update()
-    #     await super().async_added_to_hass()
-
-    async def async_update(self, force=False):
-        now = int(datetime.now().timestamp())
-        if self._last_updated is not None and now - self._last_updated > 300:
-            pass
-        else:
-            if self._last_updated is None:
-                pass
-
-        response = await self.coordinator.client.control.get_value(
-            DeviceIdentity.from_dict(self._inverter_device.device_data),
-            self._service_param_id,
+        self._poll_interval = _clamp(
+            coordinator.config_entry.options.get(
+                CONF_DYNAMIC_SETTINGS_INTERVAL, DEFAULT_DYNAMIC_SETTINGS_INTERVAL,
+            ),
+            MIN_DYNAMIC_SETTINGS_INTERVAL,
+            MAX_DYNAMIC_SETTINGS_INTERVAL,
         )
-        if 'err' not in response:
-            val = response['val'] if 'unit' not in self._field_data else str(
-                resolve_number_with_unit(response['val']))
-            mapped_list = list(map(lambda x: x.lower(), self._attr_options))
-            try:
-                index = mapped_list.index(val.lower())
-                real_val = self._attr_options[index]
-                self._attr_current_option = real_val
-                self._last_updated = now
-                self.async_write_ha_state()
-            except ValueError:
-                if self._last_updated is None:
-                    self._disabled_param = True
-                self._last_updated = now
-        else:
+        # Spread initial polls across one full interval — with dozens of CONFIG
+        # entities per inverter this prevents an API stampede at startup.
+        now = int(datetime.now().timestamp())
+        self._last_updated: int | None = now - random.randint(0, max(self._poll_interval - 1, 1))
+
+    async def async_update(self, force: bool = False) -> None:
+        now = int(datetime.now().timestamp())
+        if not force and self._last_updated is not None and (now - self._last_updated) < self._poll_interval:
+            return
+
+        try:
+            async with async_timeout.timeout(DYNAMIC_SETTINGS_API_TIMEOUT):
+                response = await self.coordinator.client.control.get_value(
+                    DeviceIdentity.from_dict(self._inverter_device.device_data),
+                    self._service_param_id,
+                )
+        except (asyncio.TimeoutError, Exception) as err:
+            _LOGGER.debug(
+                "Skipping update of %s: %s", self._attr_unique_id, err,
+            )
+            return
+
+        if not isinstance(response, dict) or 'err' in response:
             if self._last_updated is None:
                 self._disabled_param = True
+            self._last_updated = now
+            return
+
+        raw_val = response.get('val')
+        if raw_val is None:
+            self._last_updated = now
+            return
+        val = raw_val if 'unit' not in self._field_data else str(resolve_number_with_unit(raw_val))
+        mapped_list = [opt.lower() for opt in self._attr_options]
+        try:
+            index = mapped_list.index(val.lower())
+        except (ValueError, AttributeError):
+            if self._last_updated is None:
+                self._disabled_param = True
+            self._last_updated = now
+            return
+        self._attr_current_option = self._attr_options[index]
+        self._last_updated = now
+        self.async_write_ha_state()
 
     @property
     def available(self) -> bool:

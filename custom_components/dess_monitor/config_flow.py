@@ -15,12 +15,16 @@ from .const import (  # pylint:disable=unused-import
     DOMAIN,
     CONF_MAIN_UPDATE_INTERVAL,
     CONF_DIRECT_UPDATE_INTERVAL,
+    CONF_DYNAMIC_SETTINGS_INTERVAL,
     DEFAULT_MAIN_UPDATE_INTERVAL,
     DEFAULT_DIRECT_UPDATE_INTERVAL,
+    DEFAULT_DYNAMIC_SETTINGS_INTERVAL,
     MIN_MAIN_UPDATE_INTERVAL,
     MAX_MAIN_UPDATE_INTERVAL,
     MIN_DIRECT_UPDATE_INTERVAL,
     MAX_DIRECT_UPDATE_INTERVAL,
+    MIN_DYNAMIC_SETTINGS_INTERVAL,
+    MAX_DYNAMIC_SETTINGS_INTERVAL,
 )
 
 _LOGGER = logging.getLogger(__name__)
@@ -261,6 +265,15 @@ class OptionsFlow(config_entries.OptionsFlow):
                 ): vol.All(
                     vol.Coerce(int),
                     vol.Range(min=MIN_DIRECT_UPDATE_INTERVAL, max=MAX_DIRECT_UPDATE_INTERVAL),
+                ),
+                vol.Optional(
+                    CONF_DYNAMIC_SETTINGS_INTERVAL,
+                    default=self._config_entry.options.get(
+                        CONF_DYNAMIC_SETTINGS_INTERVAL, DEFAULT_DYNAMIC_SETTINGS_INTERVAL
+                    ),
+                ): vol.All(
+                    vol.Coerce(int),
+                    vol.Range(min=MIN_DYNAMIC_SETTINGS_INTERVAL, max=MAX_DYNAMIC_SETTINGS_INTERVAL),
                 ),
             })
         )
