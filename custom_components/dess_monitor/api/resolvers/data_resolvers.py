@@ -179,6 +179,38 @@ def resolve_battery_discharge_power(data, inverter_device):
     return current * voltage
 
 
+def resolve_battery_power(data, inverter_device):
+    """Net signed battery power: +charging, −discharging.
+
+    Layered resolution so that any one of the available signals is enough:
+
+    1. Direct provider key (``battery_active_power`` is already signed on most
+       firmwares).
+    2. ``battery_charging_power − battery_discharge_power`` — works whenever
+       the magnitude legs resolve, even when the signed source is missing.
+    3. Net battery current × battery voltage — last resort when only the
+       magnitudes of charge/discharge current are exposed.
+    """
+    direct = _resolve(inverter_device, "battery_power", data)
+    if direct is not None:
+        return direct
+
+    charging = _resolve(inverter_device, "battery_charging_power", data)
+    discharge = _resolve(inverter_device, "battery_discharge_power", data)
+    if charging is not None or discharge is not None:
+        return (charging or 0.0) - (discharge or 0.0)
+
+    voltage = _resolve(inverter_device, "battery_voltage", data)
+    if voltage is None:
+        return None
+    charge_current = _resolve(inverter_device, "battery_charging_current", data)
+    discharge_current = _resolve(inverter_device, "battery_discharge_current", data)
+    if charge_current is None and discharge_current is None:
+        return None
+    net_current = (charge_current or 0.0) - (discharge_current or 0.0)
+    return net_current * voltage
+
+
 def resolve_active_load_power(data, inverter_device):
     return _resolve(inverter_device, "active_load_power", data)
 

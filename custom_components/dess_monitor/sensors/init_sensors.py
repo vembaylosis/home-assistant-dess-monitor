@@ -205,6 +205,18 @@ class BatteryDischargePowerSensor(ValueResolvingSensor):
                          resolve_battery_discharge_power, SensorDeviceClass.POWER, UnitOfPower.WATT)
 
 
+class BatteryPowerSensor(ValueResolvingSensor):
+    """Net signed battery power: positive when charging, negative when discharging.
+
+    Useful for energy-flow cards (Sunsynk / Power Flow) that expect a single
+    signed value rather than separate charge/discharge legs.
+    """
+
+    def __init__(self, inverter_device, coordinator):
+        super().__init__(inverter_device, coordinator, "Battery Power", "battery_power",
+                         resolve_battery_power, SensorDeviceClass.POWER, UnitOfPower.WATT)
+
+
 class InverterDCTemperatureSensor(ValueResolvingSensor):
     def __init__(self, inverter_device, coordinator):
         super().__init__(inverter_device, coordinator, "Inverter DC Temperature", "inverter_dc_temperature",

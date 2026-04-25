@@ -156,6 +156,16 @@ CANONICAL_METRICS: dict[str, list[ProviderKeyCandidate]] = {
     "battery_active_power": [
         ProviderKeyCandidate("battery_active_power", MATCH_FIELD_PAR),
     ],
+    # Signed battery power: positive when charging, negative when discharging.
+    # Same key as ``battery_active_power`` (no sign filter — value already
+    # carries direction). The resolver layer falls back to charge−discharge
+    # arithmetic when no provider key is present.
+    "battery_power": [
+        ProviderKeyCandidate("battery_active_power", MATCH_FIELD_PAR),
+        ProviderKeyCandidate("battery_active_power", MATCH_FIELD_ID),
+        ProviderKeyCandidate("Battery Power", MATCH_FIELD_PAR),
+        ProviderKeyCandidate("Battery Power", MATCH_FIELD_ID),
+    ],
     # Same key as battery_active_power, sign-filtered for charging vs discharging.
     "battery_charging_power": [
         ProviderKeyCandidate("battery_active_power", MATCH_FIELD_PAR, sign=SIGN_POSITIVE),

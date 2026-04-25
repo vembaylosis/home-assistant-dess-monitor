@@ -57,6 +57,7 @@ def create_static_sensors(item, coordinator):
         BatteryChargePowerSensor,
         BatteryDischargeSensor,
         BatteryDischargePowerSensor,
+        BatteryPowerSensor,
         BatteryInEnergySensor,
         BatteryOutEnergySensor,
         BatteryCapacitySensor,
