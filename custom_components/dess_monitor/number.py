@@ -35,6 +35,14 @@ from custom_components.dess_monitor.const import (
     MIN_DYNAMIC_SETTINGS_INTERVAL,
     MAX_DYNAMIC_SETTINGS_INTERVAL,
     DYNAMIC_SETTINGS_API_TIMEOUT,
+    CONF_BATTERY_VIRTUAL_ENABLED,
+    DEFAULT_BATTERY_VIRTUAL_ENABLED,
+    DEFAULT_BATTERY_CAPACITY_AH,
+    DEFAULT_BATTERY_VOLTAGE_FULL,
+    MIN_BATTERY_CAPACITY_AH,
+    MAX_BATTERY_CAPACITY_AH,
+    MIN_BATTERY_VOLTAGE_FULL,
+    MAX_BATTERY_VOLTAGE_FULL,
 )
 from custom_components.dess_monitor.coordinators.coordinator import _clamp
 from custom_components.dess_monitor.hub import InverterDevice
@@ -113,6 +121,17 @@ async def async_setup_entry(
     hub = config_entry.runtime_data
     coordinator = hub.coordinator
     coordinator_data = hub.coordinator.data
+
+    # Per-device virtual-battery config entities are only created when the
+    # entry-level master toggle is on; the estimator further stays dormant
+    # until both numbers are non-zero.
+    if config_entry.options.get(CONF_BATTERY_VIRTUAL_ENABLED, DEFAULT_BATTERY_VIRTUAL_ENABLED):
+        virtual_battery_numbers: list[NumberEntity] = []
+        for item in hub.items:
+            virtual_battery_numbers.append(VirtualBatteryCapacityNumber(item, coordinator))
+            virtual_battery_numbers.append(VirtualBatteryVoltageFullNumber(item, coordinator))
+        if virtual_battery_numbers:
+            async_add_entities(virtual_battery_numbers)
 
     new_devices = []
     for item in hub.items:
@@ -274,3 +293,79 @@ class InverterDynamicSettingNumber(NumberBase, RestoreNumber):
 
         self._attr_native_value = param_value
         self.async_write_ha_state()
+
+
+class _VirtualBatterySettingBase(NumberBase, RestoreNumber):
+    """Common plumbing for the per-device virtual-battery config numbers.
+
+    Values are local-only (no cloud round-trip) and persist across HA
+    restarts via :class:`RestoreNumber`. On restore + on user edit we sync
+    the value into the device's :class:`VirtualBatteryEstimator` so the
+    next coordinator tick picks it up.
+    """
+
+    _attr_entity_category = EntityCategory.CONFIG
+    _attr_mode = NumberMode.BOX
+
+    def _apply_to_estimator(self, value: float) -> None:
+        raise NotImplementedError
+
+    async def async_added_to_hass(self) -> None:
+        await super().async_added_to_hass()
+        last = await self.async_get_last_number_data()
+        if last is not None and last.native_value is not None:
+            try:
+                self._attr_native_value = float(last.native_value)
+            except (TypeError, ValueError):
+                self._attr_native_value = None
+        if self._attr_native_value is not None:
+            self._apply_to_estimator(self._attr_native_value)
+
+    async def async_set_native_value(self, value: float) -> None:
+        try:
+            self._attr_native_value = float(value)
+        except (TypeError, ValueError):
+            return
+        self._apply_to_estimator(self._attr_native_value)
+        self.async_write_ha_state()
+
+
+class VirtualBatteryCapacityNumber(_VirtualBatterySettingBase):
+    """Nominal bank capacity (Ah). Setting to 0 keeps the estimator dormant."""
+
+    _attr_native_unit_of_measurement = "Ah"
+    _attr_native_min_value = MIN_BATTERY_CAPACITY_AH
+    _attr_native_max_value = MAX_BATTERY_CAPACITY_AH
+    _attr_native_step = 1
+
+    def __init__(self, inverter_device: InverterDevice, coordinator: MainCoordinator):
+        super().__init__(inverter_device, coordinator)
+        self._attr_unique_id = f"{inverter_device.inverter_id}_virtual_battery_capacity_ah"
+        self._attr_name = f"{inverter_device.name} Virtual Battery Capacity"
+        self._attr_native_value = float(DEFAULT_BATTERY_CAPACITY_AH)
+
+    def _apply_to_estimator(self, value: float) -> None:
+        estimator = self._inverter_device.virtual_battery
+        if estimator is not None:
+            estimator.set_capacity_ah(value)
+
+
+class VirtualBatteryVoltageFullNumber(_VirtualBatterySettingBase):
+    """Absorb / full-charge voltage threshold for SOC rebase."""
+
+    _attr_device_class = NumberDeviceClass.VOLTAGE
+    _attr_native_unit_of_measurement = UnitOfElectricPotential.VOLT
+    _attr_native_min_value = MIN_BATTERY_VOLTAGE_FULL
+    _attr_native_max_value = MAX_BATTERY_VOLTAGE_FULL
+    _attr_native_step = 0.1
+
+    def __init__(self, inverter_device: InverterDevice, coordinator: MainCoordinator):
+        super().__init__(inverter_device, coordinator)
+        self._attr_unique_id = f"{inverter_device.inverter_id}_virtual_battery_voltage_full"
+        self._attr_name = f"{inverter_device.name} Virtual Battery Full Voltage"
+        self._attr_native_value = float(DEFAULT_BATTERY_VOLTAGE_FULL)
+
+    def _apply_to_estimator(self, value: float) -> None:
+        estimator = self._inverter_device.virtual_battery
+        if estimator is not None:
+            estimator.set_voltage_full(value)

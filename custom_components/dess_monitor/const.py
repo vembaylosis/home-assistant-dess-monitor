@@ -33,3 +33,30 @@ DEFAULT_ENABLE_WEBSOCKET = False
 # emit several frames within a few hundred ms after a state change, and
 # pushing every one to all entities is wasteful.
 WEBSOCKET_REFRESH_DEBOUNCE_SECONDS = 0.75
+
+# Virtual battery SOC estimator — Coulomb counting from voltage+current
+# for inverters that don't publish ``battery_capacity`` (SOC %) directly.
+# Master enable lives on the entry; per-device sizing (capacity, full
+# voltage, chemistry) lives on CONFIG-category Number/Select entities so a
+# user with several banks of different sizes can dial each one independently.
+CONF_BATTERY_VIRTUAL_ENABLED = "battery_virtual_enabled"
+DEFAULT_BATTERY_VIRTUAL_ENABLED = False
+
+DEFAULT_BATTERY_CAPACITY_AH = 0
+DEFAULT_BATTERY_VOLTAGE_FULL = 0.0
+DEFAULT_BATTERY_CHEMISTRY = "lifepo4"
+
+MIN_BATTERY_CAPACITY_AH = 0
+MAX_BATTERY_CAPACITY_AH = 10000
+MIN_BATTERY_VOLTAGE_FULL = 0.0
+MAX_BATTERY_VOLTAGE_FULL = 1000.0
+
+BATTERY_CHEMISTRIES = ("lifepo4", "lead_acid", "li_ion", "generic")
+
+# When the absolute charging current drops below this fraction of capacity_ah
+# AND voltage is at/above full, we treat the bank as fully absorbed and
+# rebase SOC to 100%. 2% of C is the conventional end-of-charge tail.
+BATTERY_FULL_TAIL_CURRENT_RATIO = 0.02
+# We consider the bank "near full" within this voltage band; below it the
+# rebase doesn't fire even when current is small (could be just idle).
+BATTERY_FULL_VOLTAGE_BAND = 0.005  # 0.5% below voltage_full

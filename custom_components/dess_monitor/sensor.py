@@ -3,6 +3,10 @@
 from homeassistant.core import HomeAssistant
 from homeassistant.helpers.entity_platform import AddEntitiesCallback
 
+from custom_components.dess_monitor.const import (
+    CONF_BATTERY_VIRTUAL_ENABLED,
+    DEFAULT_BATTERY_VIRTUAL_ENABLED,
+)
 from custom_components.dess_monitor.sensors.direct_sensor import DIRECT_SENSORS, generate_qpiri_sensors
 from . import HubConfigEntry
 from .sensors.dynamic_sensor import _is_supported_unit  # noqa: F401  (used in create_dynamic_sensors)
@@ -20,8 +24,14 @@ async def async_setup_entry(
     hub = config_entry.runtime_data
     new_devices = []
 
+    virtual_battery_enabled = config_entry.options.get(
+        CONF_BATTERY_VIRTUAL_ENABLED, DEFAULT_BATTERY_VIRTUAL_ENABLED,
+    )
     for item in hub.items:
         new_devices.extend(create_static_sensors(item, hub.coordinator))
+
+        if virtual_battery_enabled:
+            new_devices.append(VirtualBatterySocSensor(item, hub.coordinator))
 
         if should_add_dynamic_sensors(config_entry, hub, item):
             new_devices.extend(create_dynamic_sensors(item, hub.coordinator))

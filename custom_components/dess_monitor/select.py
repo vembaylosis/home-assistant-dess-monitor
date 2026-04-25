@@ -22,6 +22,10 @@ from custom_components.dess_monitor.const import (
     MIN_DYNAMIC_SETTINGS_INTERVAL,
     MAX_DYNAMIC_SETTINGS_INTERVAL,
     DYNAMIC_SETTINGS_API_TIMEOUT,
+    BATTERY_CHEMISTRIES,
+    DEFAULT_BATTERY_CHEMISTRY,
+    CONF_BATTERY_VIRTUAL_ENABLED,
+    DEFAULT_BATTERY_VIRTUAL_ENABLED,
 )
 from custom_components.dess_monitor.coordinators.coordinator import _clamp
 from custom_components.dess_monitor.hub import InverterDevice
@@ -48,10 +52,15 @@ async def async_setup_entry(
     coordinator = hub.coordinator
     coordinator_data = hub.coordinator.data
 
+    virtual_battery_enabled = config_entry.options.get(
+        CONF_BATTERY_VIRTUAL_ENABLED, DEFAULT_BATTERY_VIRTUAL_ENABLED,
+    )
     new_devices = []
     for item in hub.items:
         # grid sensors
         new_devices.append(InverterOutputPrioritySelect(item, coordinator))
+        if virtual_battery_enabled:
+            new_devices.append(VirtualBatteryChemistrySelect(item, coordinator))
         if coordinator_data is None or item.inverter_id not in coordinator_data:
             continue
         fields = coordinator_data[item.inverter_id]['ctrl_fields']
@@ -283,3 +292,40 @@ class InverterDynamicSettingSelect(SelectBase, RestoreEntity):
 
             self._attr_current_option = option
             self.async_write_ha_state()
+
+
+class VirtualBatteryChemistrySelect(SelectBase, RestoreEntity):
+    """Battery chemistry selector for the SOC estimator.
+
+    Currently only annotates the estimator (the math uses the user-provided
+    full voltage directly), but the option is persisted and forwarded so a
+    future voltage-curve correction step can be added without a config-flow
+    migration.
+    """
+
+    _attr_entity_category = EntityCategory.CONFIG
+    _attr_options = list(BATTERY_CHEMISTRIES)
+
+    def __init__(self, inverter_device: InverterDevice, coordinator: MainCoordinator):
+        super().__init__(inverter_device, coordinator)
+        self._attr_unique_id = f"{inverter_device.inverter_id}_virtual_battery_chemistry"
+        self._attr_name = f"{inverter_device.name} Virtual Battery Chemistry"
+        self._attr_current_option = DEFAULT_BATTERY_CHEMISTRY
+
+    async def async_added_to_hass(self) -> None:
+        await super().async_added_to_hass()
+        last = await self.async_get_last_state()
+        if last is not None and last.state in self._attr_options:
+            self._attr_current_option = last.state
+        estimator = self._inverter_device.virtual_battery
+        if estimator is not None:
+            estimator.set_chemistry(self._attr_current_option)
+
+    async def async_select_option(self, option: str) -> None:
+        if option not in self._attr_options:
+            return
+        self._attr_current_option = option
+        estimator = self._inverter_device.virtual_battery
+        if estimator is not None:
+            estimator.set_chemistry(option)
+        self.async_write_ha_state()

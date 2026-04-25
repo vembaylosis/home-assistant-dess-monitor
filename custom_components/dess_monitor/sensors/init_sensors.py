@@ -169,6 +169,36 @@ class BatteryCapacitySensor(ValueResolvingSensor):
                          SensorDeviceClass.BATTERY, PERCENTAGE)
 
 
+class VirtualBatterySocSensor(SensorBase):
+    """Coulomb-counted SOC for inverters that don't publish a real battery %.
+
+    Reads from :class:`VirtualBatteryEstimator` attached to the device.
+    Stays "Unknown" until the user enters capacity/full voltage on the
+    per-device CONFIG entities AND the integrator (or full-rebase) yields a
+    first SOC reading.
+    """
+
+    _attr_device_class = SensorDeviceClass.BATTERY
+    _attr_native_unit_of_measurement = PERCENTAGE
+    _attr_state_class = SensorStateClass.MEASUREMENT
+    _attr_suggested_display_precision = 0
+
+    def __init__(self, inverter_device, coordinator):
+        super().__init__(inverter_device, coordinator)
+        self._attr_unique_id = f"{inverter_device.inverter_id}_virtual_battery_soc"
+        self._attr_name = f"{inverter_device.name} Virtual Battery"
+
+    @callback
+    def _handle_coordinator_update(self) -> None:
+        estimator = self._inverter_device.virtual_battery
+        if estimator is None:
+            self._attr_native_value = None
+        else:
+            soc = estimator.soc
+            self._attr_native_value = round(soc, 1) if isinstance(soc, (int, float)) else None
+        self.async_write_ha_state()
+
+
 class GridInputPowerSensor(ValueResolvingSensor):
     def __init__(self, inverter_device, coordinator):
         super().__init__(inverter_device, coordinator, "Grid In Power", "grid_in_power", resolve_grid_in_power,

@@ -17,10 +17,12 @@ from .const import (  # pylint:disable=unused-import
     CONF_DIRECT_UPDATE_INTERVAL,
     CONF_DYNAMIC_SETTINGS_INTERVAL,
     CONF_ENABLE_WEBSOCKET,
+    CONF_BATTERY_VIRTUAL_ENABLED,
     DEFAULT_MAIN_UPDATE_INTERVAL,
     DEFAULT_DIRECT_UPDATE_INTERVAL,
     DEFAULT_DYNAMIC_SETTINGS_INTERVAL,
     DEFAULT_ENABLE_WEBSOCKET,
+    DEFAULT_BATTERY_VIRTUAL_ENABLED,
     MIN_MAIN_UPDATE_INTERVAL,
     MAX_MAIN_UPDATE_INTERVAL,
     MIN_DIRECT_UPDATE_INTERVAL,
@@ -281,6 +283,12 @@ class OptionsFlow(config_entries.OptionsFlow):
                     CONF_ENABLE_WEBSOCKET,
                     default=self._config_entry.options.get(
                         CONF_ENABLE_WEBSOCKET, DEFAULT_ENABLE_WEBSOCKET,
+                    ),
+                ): bool,
+                vol.Optional(
+                    CONF_BATTERY_VIRTUAL_ENABLED,
+                    default=self._config_entry.options.get(
+                        CONF_BATTERY_VIRTUAL_ENABLED, DEFAULT_BATTERY_VIRTUAL_ENABLED,
                     ),
                 ): bool,
             })

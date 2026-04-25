@@ -8,6 +8,7 @@ from custom_components.dess_monitor.coordinators.coordinator import MainCoordina
 from custom_components.dess_monitor.coordinators.direct_coordinator import DirectCoordinator
 from custom_components.dess_monitor.mapping import MappingDiscovery
 from custom_components.dess_monitor.sdk import DessmonitorClient
+from custom_components.dess_monitor.virtual_battery import VirtualBatteryEstimator
 
 
 class Hub:
@@ -64,6 +65,7 @@ class InverterDevice:
         self.name = name
         self.firmware_version = "0.0.1"
         self.model = "DESS Device"
+        self.virtual_battery: Optional[VirtualBatteryEstimator] = None
 
     @property
     def inverter_id(self) -> str:
