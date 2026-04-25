@@ -1,3 +1,5 @@
+import logging
+
 from homeassistant.components.sensor import SensorEntity, SensorDeviceClass, SensorStateClass
 from homeassistant.const import UnitOfElectricPotential, UnitOfPower, PERCENTAGE, UnitOfFrequency, \
     UnitOfElectricCurrent, EntityCategory, UnitOfTemperature, UnitOfEnergy
@@ -5,6 +7,9 @@ from homeassistant.core import callback
 from homeassistant.helpers.device_registry import DeviceInfo
 from homeassistant.helpers.update_coordinator import CoordinatorEntity
 
+_LOGGER = logging.getLogger(__name__)
+
+from custom_components.dess_monitor.api.helpers import safe_float, safe_int
 from custom_components.dess_monitor.api.resolvers.data_resolvers import *
 from custom_components.dess_monitor.const import DOMAIN
 from custom_components.dess_monitor.coordinators.coordinator import MainCoordinator
@@ -42,7 +47,10 @@ class SensorBase(CoordinatorEntity, SensorEntity):
 
     @property
     def data(self):
-        return self.coordinator.data[self._inverter_device.inverter_id]
+        coord_data = self.coordinator.data
+        if coord_data is None:
+            return None
+        return coord_data.get(self._inverter_device.inverter_id)
 
 
 class ValueResolvingSensor(SensorBase):
@@ -80,10 +88,20 @@ class ValueResolvingSensor(SensorBase):
 
     @callback
     def _handle_coordinator_update(self) -> None:
-        self._attr_native_value = self._resolve_fn(
-            self.data,
-            self._inverter_device.device_data
-        )
+        data = self.data
+        if data is None:
+            self._attr_native_value = None
+        else:
+            try:
+                self._attr_native_value = self._resolve_fn(
+                    data,
+                    self._inverter_device.device_data
+                )
+            except Exception:
+                _LOGGER.exception(
+                    "Resolver failed for %s", self._attr_unique_id
+                )
+                self._attr_native_value = None
         self.async_write_ha_state()
 
 
@@ -197,18 +215,37 @@ class InverterInvTemperatureSensor(ValueResolvingSensor):
                          EntityCategory.DIAGNOSTIC)
 
 
+def _resolve_energy_total(data, _):
+    try:
+        return safe_float(data['device']['energyTotal'], default=None)
+    except (KeyError, TypeError):
+        return None
+
+
 class PVPowerTotalSensor(ValueResolvingSensor):
     def __init__(self, inverter_device, coordinator):
         super().__init__(inverter_device, coordinator, "PV Total Energy", "pv_total_energy",
-                         lambda data, _: data['device']['energyTotal'], SensorDeviceClass.ENERGY,
+                         _resolve_energy_total, SensorDeviceClass.ENERGY,
                          UnitOfEnergy.KILO_WATT_HOUR, 3, None, SensorStateClass.TOTAL)
+
+
+_STATUS_OPTIONS = ['NORMAL', 'OFFLINE', 'FAULT', 'STANDBY', 'WARNING']
+
+
+def _resolve_status(data, _):
+    try:
+        idx = safe_int(data['device']['status'])
+    except (KeyError, TypeError):
+        return None
+    if idx is None or not 0 <= idx < len(_STATUS_OPTIONS):
+        return None
+    return _STATUS_OPTIONS[idx]
 
 
 class InverterStatusSensor(ValueResolvingSensor):
     def __init__(self, inverter_device, coordinator):
-        options = ['NORMAL', 'OFFLINE', 'FAULT', 'STANDBY', 'WARNING']
         super().__init__(inverter_device, coordinator, "Status", "status",
-                         lambda data, _: options[data['device']['status']], SensorDeviceClass.ENUM, None,
+                         _resolve_status, SensorDeviceClass.ENUM, None,
                          entity_category=EntityCategory.DIAGNOSTIC)
 
 

@@ -10,7 +10,17 @@ from homeassistant.core import HomeAssistant, callback
 from homeassistant.helpers.selector import selector
 
 from .api import auth_user, get_devices
-from .const import DOMAIN  # pylint:disable=unused-import
+from .const import (  # pylint:disable=unused-import
+    DOMAIN,
+    CONF_MAIN_UPDATE_INTERVAL,
+    CONF_DIRECT_UPDATE_INTERVAL,
+    DEFAULT_MAIN_UPDATE_INTERVAL,
+    DEFAULT_DIRECT_UPDATE_INTERVAL,
+    MIN_MAIN_UPDATE_INTERVAL,
+    MAX_MAIN_UPDATE_INTERVAL,
+    MIN_DIRECT_UPDATE_INTERVAL,
+    MAX_DIRECT_UPDATE_INTERVAL,
+)
 
 _LOGGER = logging.getLogger(__name__)
 
@@ -223,6 +233,24 @@ class OptionsFlow(config_entries.OptionsFlow):
                              default=self._config_entry.options.get('raw_sensors', False)): bool,
                 vol.Optional("direct_request_protocol",
                              default=self._config_entry.options.get('direct_request_protocol', False)): bool,
+                vol.Optional(
+                    CONF_MAIN_UPDATE_INTERVAL,
+                    default=self._config_entry.options.get(
+                        CONF_MAIN_UPDATE_INTERVAL, DEFAULT_MAIN_UPDATE_INTERVAL
+                    ),
+                ): vol.All(
+                    vol.Coerce(int),
+                    vol.Range(min=MIN_MAIN_UPDATE_INTERVAL, max=MAX_MAIN_UPDATE_INTERVAL),
+                ),
+                vol.Optional(
+                    CONF_DIRECT_UPDATE_INTERVAL,
+                    default=self._config_entry.options.get(
+                        CONF_DIRECT_UPDATE_INTERVAL, DEFAULT_DIRECT_UPDATE_INTERVAL
+                    ),
+                ): vol.All(
+                    vol.Coerce(int),
+                    vol.Range(min=MIN_DIRECT_UPDATE_INTERVAL, max=MAX_DIRECT_UPDATE_INTERVAL),
+                ),
             })
         )
 

@@ -90,10 +90,28 @@ def resolve_param(data, where, case_insensitive=False, find_all=False, default=N
         return found[0] if found else default
 
 
-def safe_float(val: Optional[str], default: float = 0.0) -> float:
+def safe_float(val: Any, default: Optional[float] = 0.0) -> Optional[float]:
+    """Coerce to float, returning ``default`` for None / empty / unparseable input."""
+    if val is None:
+        return default
+    if isinstance(val, str):
+        val = val.strip()
+        if val == "" or val == "-" or val == "--" or val == "----" or val.lower() in ("n/a", "na", "none", "null", "nan"):
+            return default
     try:
-        return float(val) if val is not None else default
+        return float(val)
     except (ValueError, TypeError):
+        return default
+
+
+def safe_int(val: Any, default: Optional[int] = None) -> Optional[int]:
+    """Coerce to int, returning ``default`` for unparseable input."""
+    f = safe_float(val, default=None)
+    if f is None:
+        return default
+    try:
+        return int(f)
+    except (ValueError, TypeError, OverflowError):
         return default
 
 

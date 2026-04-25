@@ -6,6 +6,7 @@ from homeassistant.config_entries import ConfigEntry
 from homeassistant.const import Platform
 from homeassistant.core import HomeAssistant
 
+from custom_components.dess_monitor.auth_store import AuthStore
 from custom_components.dess_monitor.coordinators.coordinator import MainCoordinator
 from custom_components.dess_monitor.coordinators.direct_coordinator import DirectCoordinator
 from . import hub
@@ -21,8 +22,14 @@ async def async_setup_entry(hass: HomeAssistant, entry: HubConfigEntry) -> bool:
     # Store an instance of the "connecting" class that does the work of speaking
     # with your actual devices.
     await _migrate_data_to_options(hass, entry)
-    my_coordinator = MainCoordinator(hass, entry)
-    direct_coordinator_ctx = DirectCoordinator(hass, entry)
+    auth_store = AuthStore(
+        hass,
+        entry.entry_id,
+        entry.data["username"],
+        entry.data["password_hash"],
+    )
+    my_coordinator = MainCoordinator(hass, entry, auth_store)
+    direct_coordinator_ctx = DirectCoordinator(hass, entry, auth_store)
     await asyncio.gather(
         my_coordinator.async_config_entry_first_refresh(),
         direct_coordinator_ctx.async_config_entry_first_refresh()
@@ -49,6 +56,17 @@ async def async_unload_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
     unload_ok = await hass.config_entries.async_unload_platforms(entry, PLATFORMS)
 
     return unload_ok
+
+
+async def async_remove_entry(hass: HomeAssistant, entry: ConfigEntry) -> None:
+    """Drop the cached auth file when the entry is removed entirely."""
+    store = AuthStore(
+        hass,
+        entry.entry_id,
+        entry.data.get("username", ""),
+        entry.data.get("password_hash", ""),
+    )
+    await store.async_clear()
 
 
 async def _update_listener(hass: HomeAssistant, entry: ConfigEntry):

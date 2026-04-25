@@ -113,7 +113,7 @@ def resolve_battery_capacity(data, device_data):
 
 
 def resolve_grid_frequency(data, device_data):
-    return get_sensor_value_simple("grid_frequency", data, device_data)
+    return safe_float(get_sensor_value_simple("grid_frequency", data, device_data), default=None)
 
 
 def resolve_pv_power(data, device_data):
@@ -145,52 +145,52 @@ def resolve_pv2_power(data, device_data):
 
 
 def resolve_pv_voltage(data, device_data):
-    return get_sensor_value_simple("pv_voltage", data, device_data)
+    return safe_float(get_sensor_value_simple("pv_voltage", data, device_data), default=None)
 
 
 def resolve_pv2_voltage(data, device_data):
-    return get_sensor_value_simple("pv2_voltage", data, device_data)
+    return safe_float(get_sensor_value_simple("pv2_voltage", data, device_data), default=None)
 
 
 def resolve_grid_input_voltage(data, device_data):
-    return get_sensor_value_simple("grid_input_voltage", data, device_data)
+    return safe_float(get_sensor_value_simple("grid_input_voltage", data, device_data), default=None)
 
 
 def resolve_grid_output_voltage(data, device_data):
-    return get_sensor_value_simple("grid_output_voltage", data, device_data)
+    return safe_float(get_sensor_value_simple("grid_output_voltage", data, device_data), default=None)
 
 
 def resolve_dc_module_temperature(data, device_data):
-    return get_sensor_value_simple("dc_module_temperature", data, device_data)
+    return safe_float(get_sensor_value_simple("dc_module_temperature", data, device_data), default=None)
 
 
 def resolve_inv_temperature(data, device_data):
-    return get_sensor_value_simple("inv_temperature", data, device_data)
+    return safe_float(get_sensor_value_simple("inv_temperature", data, device_data), default=None)
 
 
 def resolve_bt_utility_charge(data, device_data):
-    return get_sensor_value_simple("bt_utility_charge", data, device_data)
+    return safe_float(get_sensor_value_simple("bt_utility_charge", data, device_data), default=None)
 
 
 def resolve_bt_total_charge_current(data, device_data):
-    return get_sensor_value_simple("bt_total_charge_current", data, device_data)
+    return safe_float(get_sensor_value_simple("bt_total_charge_current", data, device_data), default=None)
 
 
 def resolve_bt_cutoff_voltage(data, device_data):
-    return get_sensor_value_simple("bt_cutoff_voltage", data, device_data)
+    return safe_float(get_sensor_value_simple("bt_cutoff_voltage", data, device_data), default=None)
 
 
 def resolve_sy_nominal_out_power(data, device_data):
-    return get_sensor_value_simple("sy_nominal_out_power", data, device_data)
+    return safe_float(get_sensor_value_simple("sy_nominal_out_power", data, device_data), default=None)
 
 
 def resolve_sy_rated_battery_voltage(data, device_data):
-    return get_sensor_value_simple("sy_rated_battery_voltage", data, device_data)
+    return safe_float(get_sensor_value_simple("sy_rated_battery_voltage", data, device_data), default=None)
 
 
 def resolve_bt_comeback_utility_voltage(data, device_data):
-    return get_sensor_value_simple("bt_comeback_utility_voltage", data, device_data)
+    return safe_float(get_sensor_value_simple("bt_comeback_utility_voltage", data, device_data), default=None)
 
 
 def resolve_bt_comeback_battery_voltage(data, device_data):
-    return get_sensor_value_simple("bt_comeback_battery_voltage", data, device_data)
+    return safe_float(get_sensor_value_simple("bt_comeback_battery_voltage", data, device_data), default=None)

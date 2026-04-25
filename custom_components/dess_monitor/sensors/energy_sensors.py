@@ -70,8 +70,13 @@ class FunctionBasedEnergySensor(MyEnergySensor):
     @callback
     def _handle_coordinator_update(self) -> None:
         data = self.data
+        if data is None:
+            return
         device_data = self._inverter_device.device_data
-        current_value = self._resolve_function(data, device_data)
+        try:
+            current_value = self._resolve_function(data, device_data)
+        except Exception:
+            return
         self.update_energy_value(current_value)
 
 
