@@ -5,6 +5,7 @@ from homeassistant.helpers.entity_platform import AddEntitiesCallback
 
 from custom_components.dess_monitor.sensors.direct_sensor import DIRECT_SENSORS, generate_qpiri_sensors
 from . import HubConfigEntry
+from .sensors.dynamic_sensor import _is_supported_unit  # noqa: F401  (used in create_dynamic_sensors)
 from .sensors.dynamic_sensor import *
 from .sensors.energy_sensors import *
 from .sensors.init_sensors import *
@@ -64,6 +65,7 @@ def create_static_sensors(item, coordinator):
         InverterStatusSensor,
         InverterMainsStatusSensor,
         InverterLastSampleTimeSensor,
+        InverterWebSocketLastFrameSensor,
         InverterOutputPrioritySensor,
         InverterOutputVoltageSensor,
         InverterOutputPowerSensor,
@@ -95,28 +97,45 @@ def should_add_dynamic_sensors(config_entry, hub, item):
 
 
 def create_dynamic_sensors(item, coordinator):
-    """Return dynamic sensors for an item based on parameters."""
+    """Return dynamic sensors for an item based on parameters.
+
+    Cloud responses overlap heavily — the same provider key shows up in both
+    ``pars.parameter`` and ``last_data.pars.<group>``. Without dedup the second
+    sensor is silently rejected by HA (duplicate ``unique_id``) and that
+    source's branch never runs. We prefer ``pars.parameter`` because it
+    carries a friendly ``name`` field; ``last_data`` fills in everything that
+    was absent there.
+    """
     sensors = []
+    seen_ids: set[str] = set()
     data = coordinator.data[item.inverter_id]
-    allowed_units = {'kW', 'W', 'A', 'V', 'HZ', '%'}
 
-    def is_valid_parameter(param):
-        return 'unit' in param and param['unit'] in allowed_units
-
-    for parameter in filter(is_valid_parameter, data.get('pars', {}).get('parameter', [])):
+    for parameter in data.get('pars', {}).get('parameter', []) or []:
+        if not _is_supported_unit(parameter):
+            continue
+        par_id = parameter.get('par')
+        if not par_id or par_id in seen_ids:
+            continue
+        seen_ids.add(par_id)
         sensors.append(InverterDynamicSensor(item, coordinator, parameter, DessSensorSource.PARS_ES))
 
-    for key, params in data.get('last_data', {}).get('pars', {}).items():
-        for parameter in filter(is_valid_parameter, params):
+    for _group, params in (data.get('last_data', {}).get('pars', {}) or {}).items():
+        for parameter in params or []:
+            if not _is_supported_unit(parameter):
+                continue
+            par_id = parameter.get('id')
+            if not par_id or par_id in seen_ids:
+                continue
+            seen_ids.add(par_id)
             sensors.append(InverterDynamicSensor(
                 item, coordinator,
                 {
-                    'par': parameter['id'],
-                    'name': parameter['par'],
-                    'val': parameter['val'],
-                    'unit': parameter['unit'],
+                    'par': par_id,
+                    'name': parameter.get('par') or par_id,
+                    'val': parameter.get('val'),
+                    'unit': parameter.get('unit'),
                 },
-                DessSensorSource.SP_LAST_DATA
+                DessSensorSource.SP_LAST_DATA,
             ))
     return sensors
 

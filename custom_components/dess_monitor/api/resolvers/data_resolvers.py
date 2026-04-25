@@ -30,6 +30,27 @@ _LAST_SAMPLE_TIME_DIAG_LOGGED: set[str] = set()
 _LAST_SAMPLE_TIME_TZ_OFFSET_HOURS: dict[str, int] = {}
 
 
+def resolve_ws_last_frame_at(
+        data: dict[str, Any], inverter_device: "InverterDevice",
+) -> Optional[datetime]:
+    """Wall-clock UTC time of the most recent WebSocket frame for this device.
+
+    The :class:`DeviceStreamManager` writes ``ws_received_at`` (epoch seconds)
+    next to ``ws_data`` on every frame; ``None`` here means no frame has been
+    delivered since startup (WS disabled, not yet connected, or device not
+    streaming).
+    """
+    if not isinstance(data, dict):
+        return None
+    raw = data.get("ws_received_at")
+    if not isinstance(raw, (int, float)):
+        return None
+    try:
+        return datetime.fromtimestamp(float(raw), tz=dt_util.UTC)
+    except (OverflowError, OSError, ValueError):
+        return None
+
+
 def resolve_last_sample_time(data: dict[str, Any], inverter_device: "InverterDevice") -> Optional[datetime]:
     """Return ``last_data.gts`` as an aware datetime (assumed in HA local TZ)."""
     device_data = inverter_device.device_data if inverter_device is not None else None

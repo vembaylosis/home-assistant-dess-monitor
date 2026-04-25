@@ -45,23 +45,36 @@ _OUTPUT_PRIORITY_MAP: Mapping[str, str] = {
     "uti": "Utility", "utility": "Utility", "utility first": "Utility",
     "sbu": "SBU", "sbu first": "SBU",
     "sol": "Solar", "solar": "Solar", "solar first": "Solar",
+    # Anenji 11kw (devcode 6544) ctrl_fields publish three-letter codes
+    # without an explanatory mapping; pass them through as-is so the sensor
+    # never goes Unknown when the device picks one we haven't tagged.
+    "sub": "SUB",
+    "suf": "SUF",
+    "off": "OFF",
 }
 
 _CHARGE_PRIORITY_MAP: Mapping[str, str] = {
     "solar priority": "SOLAR_PRIORITY",
     "pv first": "SOLAR_PRIORITY",
+    "sof": "SOLAR_PRIORITY",   # Anenji 11kw devcode 6544 (Solar First)
     "solar and mains": "SOLAR_AND_UTILITY",
     "pv is at the same level as mains": "SOLAR_AND_UTILITY",
     "pv is at the same level as utility": "SOLAR_AND_UTILITY",
+    "snu": "SOLAR_AND_UTILITY",  # Solar a-N-d Utility
     "solar only": "SOLAR_ONLY",
     "only pv": "SOLAR_ONLY",
+    "oso": "SOLAR_ONLY",         # Only SOlar
     "utility first": "UTILITY",
+    "sor": "UTILITY",            # Solar OR utility — closest existing value
     "n/a": "NONE",
+    "off": "NONE",
 }
 
 _MAINS_STATUS_MAP: Mapping[str, str] = {
     # Operating mode the inverter reports — collapses many cloud labels into
-    # a small enum a HA automation can switch on.
+    # a small enum a HA automation can switch on. Includes Chinese variants
+    # because some firmwares stream WS payloads in zh-CN regardless of UI
+    # locale.
     "battery mode": "BATTERY",
     "battery": "BATTERY",
     "discharge": "BATTERY",
@@ -69,6 +82,9 @@ _MAINS_STATUS_MAP: Mapping[str, str] = {
     "off grid mode": "BATTERY",
     "off-grid": "BATTERY",
     "invert mode": "BATTERY",
+    "\u7535\u6c60\u6a21\u5f0f": "BATTERY",       # 电池模式
+    "\u7535\u6c60\u4f9b\u7535": "BATTERY",       # 电池供电
+    "\u5e02\u7535\u672a\u63a5\u5165\u7cfb\u7edf": "BATTERY",  # 市电未接入系统
     "mains mode": "GRID",
     "mains": "GRID",
     "mains ok": "GRID",
@@ -77,12 +93,17 @@ _MAINS_STATUS_MAP: Mapping[str, str] = {
     "line mode": "GRID",
     "bypass": "GRID",
     "ac mode": "GRID",
+    "\u5e02\u7535\u6a21\u5f0f": "GRID",          # 市电模式
+    "\u5e02\u7535\u5df2\u63a5\u5165\u7cfb\u7edf": "GRID",  # 市电已接入系统
     "hybrid": "HYBRID",
     "solar mode": "SOLAR",
     "solar": "SOLAR",
     "pv": "SOLAR",
+    "\u5149\u4f0f\u6a21\u5f0f": "SOLAR",         # 光伏模式
     "standby": "STANDBY",
+    "\u5f85\u673a": "STANDBY",                   # 待机
     "fault": "FAULT",
+    "\u6545\u969c": "FAULT",                     # 故障
     "off": "OFF",
 }
 

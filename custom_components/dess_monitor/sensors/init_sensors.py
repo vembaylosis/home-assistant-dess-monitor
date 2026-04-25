@@ -340,3 +340,18 @@ class InverterLastSampleTimeSensor(ValueResolvingSensor):
         super().__init__(inverter_device, coordinator, "Last Sample Time", "last_sample_time",
                          resolve_last_sample_time, SensorDeviceClass.TIMESTAMP, None,
                          entity_category=EntityCategory.DIAGNOSTIC)
+
+
+class InverterWebSocketLastFrameSensor(ValueResolvingSensor):
+    """Timestamp of the most recent WebSocket telemetry frame for the device.
+
+    Stays ``Unknown`` while the WS stream is disabled or hasn't connected yet.
+    Useful as a freshness signal — automations can flag "WS stale" when this
+    sensor lags behind ``Last Sample Time`` by more than a couple of polling
+    intervals.
+    """
+
+    def __init__(self, inverter_device, coordinator):
+        super().__init__(inverter_device, coordinator, "WebSocket Last Frame At", "ws_last_frame_at",
+                         resolve_ws_last_frame_at, SensorDeviceClass.TIMESTAMP, None,
+                         entity_category=EntityCategory.DIAGNOSTIC)

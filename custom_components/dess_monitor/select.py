@@ -5,10 +5,11 @@ from datetime import timedelta, datetime
 
 import async_timeout
 from homeassistant.components.select import SelectEntity
-from homeassistant.const import EntityCategory
+from homeassistant.const import EntityCategory, STATE_UNAVAILABLE, STATE_UNKNOWN
 from homeassistant.core import HomeAssistant, callback
 from homeassistant.helpers.device_registry import DeviceInfo
 from homeassistant.helpers.entity_platform import AddEntitiesCallback
+from homeassistant.helpers.restore_state import RestoreEntity
 from homeassistant.helpers.update_coordinator import CoordinatorEntity
 
 from custom_components.dess_monitor import MainCoordinator, HubConfigEntry
@@ -119,7 +120,7 @@ class SelectBase(CoordinatorEntity, SelectEntity):
     #     self._inverter_device.remove_callback(self.async_write_ha_state)
 
 
-class InverterOutputPrioritySelect(SelectBase):
+class InverterOutputPrioritySelect(SelectBase, RestoreEntity):
     _attr_current_option = None
 
     def __init__(self, inverter_device: InverterDevice, coordinator: MainCoordinator):
@@ -133,16 +134,35 @@ class InverterOutputPrioritySelect(SelectBase):
             if data is not None:
                 self._attr_current_option = resolve_output_priority(data, self._inverter_device)
 
+    async def async_added_to_hass(self) -> None:
+        """Hold the last known option until the next coordinator refresh.
+
+        The cloud is slow to ACK select reads, so without restore the entity
+        flickers to ``Unknown`` for the first poll after every HA restart.
+        """
+        await super().async_added_to_hass()
+        if self._attr_current_option is not None:
+            return
+        last = await self.async_get_last_state()
+        if last is None or last.state in (None, STATE_UNKNOWN, STATE_UNAVAILABLE):
+            return
+        if last.state in self._attr_options:
+            self._attr_current_option = last.state
+
     @callback
     def _handle_coordinator_update(self) -> None:
         data = (self.coordinator.data or {}).get(self._inverter_device.inverter_id)
         if data is None:
-            self._attr_current_option = None
-        else:
-            try:
-                self._attr_current_option = resolve_output_priority(data, self._inverter_device)
-            except Exception:
-                self._attr_current_option = None
+            # Keep the restored / previously-resolved option visible while
+            # polling is between cycles — avoids flicker to Unknown.
+            self.async_write_ha_state()
+            return
+        try:
+            resolved = resolve_output_priority(data, self._inverter_device)
+        except Exception:
+            resolved = None
+        if resolved is not None:
+            self._attr_current_option = resolved
         self.async_write_ha_state()
 
     async def async_select_option(self, option: str):
@@ -158,11 +178,24 @@ class InverterOutputPrioritySelect(SelectBase):
             await self.coordinator.async_request_refresh()
 
 
-class InverterDynamicSettingSelect(SelectBase):
+class InverterDynamicSettingSelect(SelectBase, RestoreEntity):
     _attr_current_option = None
     _disabled_param = False
     should_poll = True
     _attr_entity_category = EntityCategory.CONFIG
+
+    async def async_added_to_hass(self) -> None:
+        """Restore the previous option so the slow cloud doesn't blank the UI."""
+        await super().async_added_to_hass()
+        last = await self.async_get_last_state()
+        if last is None or last.state in (None, STATE_UNKNOWN, STATE_UNAVAILABLE):
+            return
+        if last.state in self._attr_options:
+            self._attr_current_option = last.state
+            # The fact that we have a previously-saved option means the param
+            # exists on this device — don't auto-disable on the first API miss.
+            self._disabled_param = False
+            self._last_updated = int(datetime.now().timestamp())
 
     def __init__(self, inverter_device: InverterDevice, coordinator: MainCoordinator, field_data):
         super().__init__(inverter_device, coordinator)

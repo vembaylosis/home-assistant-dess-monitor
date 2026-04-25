@@ -1,11 +1,27 @@
 import asyncio
 import logging
 import random
+import re
 from datetime import timedelta, datetime
+from typing import Optional
 
 import async_timeout
-from homeassistant.components.number import NumberEntity, NumberMode
-from homeassistant.const import EntityCategory
+from homeassistant.components.number import (
+    NumberDeviceClass,
+    NumberEntity,
+    NumberMode,
+    RestoreNumber,
+)
+from homeassistant.const import (
+    EntityCategory,
+    PERCENTAGE,
+    UnitOfElectricCurrent,
+    UnitOfElectricPotential,
+    UnitOfFrequency,
+    UnitOfPower,
+    UnitOfTemperature,
+    UnitOfTime,
+)
 from homeassistant.core import HomeAssistant
 from homeassistant.helpers.device_registry import DeviceInfo
 from homeassistant.helpers.entity_platform import AddEntitiesCallback
@@ -31,6 +47,61 @@ _LOGGER = logging.getLogger(__name__)
 # API hit rate is bounded by ``CONF_DYNAMIC_SETTINGS_INTERVAL``.
 SCAN_INTERVAL = timedelta(seconds=60)
 PARALLEL_UPDATES = 1
+
+
+# Map the cloud's free-form unit string onto an HA constant + matching device
+# class. Entries we don't recognise fall through to no-unit/no-class so the
+# entity still works, just without unit-specific UI affordances.
+_UNIT_TO_HA: dict[str, tuple[str, Optional[NumberDeviceClass]]] = {
+    "V": (UnitOfElectricPotential.VOLT, NumberDeviceClass.VOLTAGE),
+    "A": (UnitOfElectricCurrent.AMPERE, NumberDeviceClass.CURRENT),
+    "%": (PERCENTAGE, None),
+    "Hz": (UnitOfFrequency.HERTZ, NumberDeviceClass.FREQUENCY),
+    "HZ": (UnitOfFrequency.HERTZ, NumberDeviceClass.FREQUENCY),
+    "W": (UnitOfPower.WATT, NumberDeviceClass.POWER),
+    "kW": (UnitOfPower.KILO_WATT, NumberDeviceClass.POWER),
+    "\u00b0C": (UnitOfTemperature.CELSIUS, NumberDeviceClass.TEMPERATURE),
+    "min": (UnitOfTime.MINUTES, NumberDeviceClass.DURATION),
+    "minutes": (UnitOfTime.MINUTES, NumberDeviceClass.DURATION),
+    "s": (UnitOfTime.SECONDS, NumberDeviceClass.DURATION),
+    "sec": (UnitOfTime.SECONDS, NumberDeviceClass.DURATION),
+    "h": (UnitOfTime.HOURS, NumberDeviceClass.DURATION),
+    "hour": (UnitOfTime.HOURS, NumberDeviceClass.DURATION),
+    "hours": (UnitOfTime.HOURS, NumberDeviceClass.DURATION),
+    "day": (UnitOfTime.DAYS, NumberDeviceClass.DURATION),
+    "days": (UnitOfTime.DAYS, NumberDeviceClass.DURATION),
+}
+
+# "60.0~66V"  /  "50.0~80A"  /  "1~900min"  /  "0-900min"  /  "1-90".
+_HINT_RANGE_RE = re.compile(
+    r"^\s*(-?\d+(?:\.\d+)?)\s*[~\-\u2013\u2014]\s*(-?\d+(?:\.\d+)?)\s*([A-Za-z%\u00b0]*)\s*$"
+)
+
+
+def _resolve_unit(raw: Optional[str]) -> tuple[Optional[str], Optional[NumberDeviceClass]]:
+    if not raw:
+        return None, None
+    if raw in _UNIT_TO_HA:
+        return _UNIT_TO_HA[raw]
+    return raw, None  # unknown unit — show as-is, no device_class
+
+
+def _parse_hint(hint: Optional[str]) -> Optional[tuple[float, float, bool]]:
+    """Return ``(min, max, has_decimal)`` parsed from a ``"<a>~<b>[unit]"`` hint."""
+    if not hint or not isinstance(hint, str):
+        return None
+    m = _HINT_RANGE_RE.match(hint)
+    if not m:
+        return None
+    a_raw, b_raw = m.group(1), m.group(2)
+    try:
+        a = float(a_raw)
+        b = float(b_raw)
+    except ValueError:
+        return None
+    lo, hi = (a, b) if a <= b else (b, a)
+    has_decimal = "." in a_raw or "." in b_raw
+    return lo, hi, has_decimal
 
 
 async def async_setup_entry(
@@ -112,23 +183,45 @@ class NumberBase(CoordinatorEntity, NumberEntity):
     #     self._inverter_device.remove_callback(self.async_write_ha_state)
 
 
-class InverterDynamicSettingNumber(NumberBase):
+class InverterDynamicSettingNumber(NumberBase, RestoreNumber):
     _attr_native_value = None
     should_poll = True
     _attr_entity_category = EntityCategory.CONFIG
 
-    # _attr_entity_category = EntityCategory.CONFIG
+    async def async_added_to_hass(self) -> None:
+        """Restore the previous value before the (slow) cloud confirms it."""
+        await super().async_added_to_hass()
+        last = await self.async_get_last_number_data()
+        if last is not None and last.native_value is not None:
+            self._attr_native_value = float(last.native_value)
+            # Pretend we just polled — first real refresh will happen one
+            # ``_poll_interval`` later, sparing the cloud at startup.
+            self._last_updated = int(datetime.now().timestamp())
 
     def __init__(self, inverter_device: InverterDevice, coordinator: MainCoordinator, field_data):
         super().__init__(inverter_device, coordinator)
         self._service_param_id = field_data['id']
-        # "hint": "25.0~31.5V 48.0~61.0V"
         self._attr_unique_id = f"{self._inverter_device.inverter_id}_settings_{field_data['id']}"
         self._attr_name = f"{self._inverter_device.name} SET {field_data['name']}"
-        self._attr_native_unit_of_measurement = 'V'  # field_data['unit']
-        self._attr_native_min_value = 0
-        self._attr_native_max_value = 100
-        self._attr_native_step = 0.1
+
+        unit, device_class = _resolve_unit(field_data.get('unit'))
+        self._attr_native_unit_of_measurement = unit
+        if device_class is not None:
+            self._attr_device_class = device_class
+
+        # Range and step: try to derive from the cloud's "hint" string
+        # ("60.0~66V", "1~900min", "1-90"); fall back to wide defaults so the
+        # field stays editable even when the device omits a hint.
+        parsed = _parse_hint(field_data.get('hint'))
+        if parsed is not None:
+            lo, hi, has_decimal = parsed
+            self._attr_native_min_value = lo
+            self._attr_native_max_value = hi
+            self._attr_native_step = 0.1 if has_decimal else 1.0
+        else:
+            self._attr_native_min_value = 0.0
+            self._attr_native_max_value = 1000.0
+            self._attr_native_step = 0.1 if unit == UnitOfElectricPotential.VOLT else 1.0
         self._attr_mode = NumberMode.BOX
         self._poll_interval = _clamp(
             coordinator.config_entry.options.get(

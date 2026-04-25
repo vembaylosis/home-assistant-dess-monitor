@@ -23,3 +23,13 @@ MAX_DYNAMIC_SETTINGS_INTERVAL = 3600
 # Hard ceiling on a single ctrl-value/control API call. Anything slower
 # would block the entity's update slot past HA's 10s warning threshold.
 DYNAMIC_SETTINGS_API_TIMEOUT = 5
+
+# WebSocket telemetry stream — pushes per-device data to the coordinator
+# without round-tripping through the polling endpoints. Off by default
+# because not every devcode publishes useful frames over WS.
+CONF_ENABLE_WEBSOCKET = "enable_websocket"
+DEFAULT_ENABLE_WEBSOCKET = False
+# Coalesce bursts of WS frames into one coordinator refresh — typical devices
+# emit several frames within a few hundred ms after a state change, and
+# pushing every one to all entities is wasteful.
+WEBSOCKET_REFRESH_DEBOUNCE_SECONDS = 0.75

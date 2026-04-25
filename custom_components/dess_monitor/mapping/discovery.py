@@ -201,26 +201,55 @@ class MappingDiscovery:
     def _lookup_item(
             cand: ProviderKeyCandidate, data: dict[str, Any],
     ) -> Optional[dict[str, Any]]:
-        """Return the matching payload item, trying the declared shape first.
+        """Return the matching payload item, preferring fresh WS data.
 
-        Devices often mirror the same key across both shapes: ``last_data``
-        items carry it as ``id``, the ``pars`` envelope carries it as ``par``
-        with a ``status`` flag. If the declared shape is absent — or present
-        but flagged offline (``status == 0``) — fall back to the opposite
-        shape so we don't lose data the cloud is in fact publishing.
+        Each device entry contains both polled subtrees (``last_data``,
+        ``pars``, ``energy_flow``) and a live ``ws_data`` subtree fed by the
+        WebSocket stream. We search ``ws_data`` first so that whenever the
+        stream is delivering, its values shadow the (possibly minutes-old)
+        polled snapshot — otherwise ``resolve_param`` would just return the
+        first match it bumps into during a recursive walk, which is whatever
+        landed earlier in dict-insertion order.
+
+        Within each haystack we still try the declared ``match_field`` first
+        and fall back to the opposite shape — devices often mirror the same
+        key as ``id`` (``last_data``) and ``par`` (``pars`` envelope) at once,
+        and the polled ``par`` form may carry ``status == 0`` (offline) when
+        the ``id`` form has the live value.
         """
+        if not isinstance(data, dict):
+            return None
+
+        for haystack in MappingDiscovery._iter_haystacks(data):
+            item = MappingDiscovery._search_haystack(cand, haystack)
+            if item is not None:
+                return item
+        return None
+
+    @staticmethod
+    def _iter_haystacks(data: dict[str, Any]):
+        """Yield ``ws_data`` first (live), then the polled subtrees as a whole."""
+        ws = data.get("ws_data")
+        if isinstance(ws, dict) and ws:
+            yield ws
+        polled = {k: v for k, v in data.items() if k != "ws_data"}
+        if polled:
+            yield polled
+
+    @staticmethod
+    def _search_haystack(
+            cand: ProviderKeyCandidate, haystack: dict[str, Any],
+    ) -> Optional[dict[str, Any]]:
         primary_field = cand.match_field
         primary = resolve_param(
-            data, {primary_field: cand.provider_key}, case_insensitive=True,
+            haystack, {primary_field: cand.provider_key}, case_insensitive=True,
         )
         if isinstance(primary, dict):
-            if primary_field == MATCH_FIELD_PAR and primary.get("status") == 0:
-                pass  # offline — try opposite shape
-            else:
+            if not (primary_field == MATCH_FIELD_PAR and primary.get("status") == 0):
                 return primary
         opposite_field = "id" if primary_field == MATCH_FIELD_PAR else "par"
         secondary = resolve_param(
-            data, {opposite_field: cand.provider_key}, case_insensitive=True,
+            haystack, {opposite_field: cand.provider_key}, case_insensitive=True,
         )
         if not isinstance(secondary, dict):
             return None

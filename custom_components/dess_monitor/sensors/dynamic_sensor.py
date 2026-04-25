@@ -1,8 +1,18 @@
 from enum import Enum
+from typing import Optional
 
-from homeassistant.components.sensor import SensorDeviceClass
-from homeassistant.const import EntityCategory, UnitOfPower, UnitOfElectricPotential, UnitOfFrequency, \
-    UnitOfElectricCurrent, PERCENTAGE
+from homeassistant.components.sensor import SensorDeviceClass, SensorStateClass
+from homeassistant.const import (
+    EntityCategory,
+    PERCENTAGE,
+    UnitOfApparentPower,
+    UnitOfElectricCurrent,
+    UnitOfElectricPotential,
+    UnitOfEnergy,
+    UnitOfFrequency,
+    UnitOfPower,
+    UnitOfTemperature,
+)
 from homeassistant.core import callback
 
 from custom_components.dess_monitor.api.helpers import safe_float
@@ -17,6 +27,62 @@ class DessSensorSource(Enum):
     ENERGY_FLOW = 'energy_flow'
 
 
+# Cloud sends the same physical unit with inconsistent casing (``Hz`` vs ``HZ``,
+# ``kW`` vs ``KW``) — normalise to a canonical key before looking up.
+_UNIT_ALIASES: dict[str, str] = {
+    "kw": "kW",
+    "w": "W",
+    "a": "A",
+    "v": "V",
+    "hz": "Hz",
+    "\u00b0c": "\u00b0C",
+    "va": "VA",
+    "wh": "Wh",
+    "kwh": "kWh",
+    "%": "%",
+}
+
+_UNIT_DISPLAY: dict[str, str] = {
+    "kW": UnitOfPower.KILO_WATT,
+    "W": UnitOfPower.WATT,
+    "A": UnitOfElectricCurrent.AMPERE,
+    "V": UnitOfElectricPotential.VOLT,
+    "Hz": UnitOfFrequency.HERTZ,
+    "\u00b0C": UnitOfTemperature.CELSIUS,
+    "VA": UnitOfApparentPower.VOLT_AMPERE,
+    "Wh": UnitOfEnergy.WATT_HOUR,
+    "kWh": UnitOfEnergy.KILO_WATT_HOUR,
+    "%": PERCENTAGE,
+}
+
+_UNIT_DEVICE_CLASS: dict[str, SensorDeviceClass] = {
+    "kW": SensorDeviceClass.POWER,
+    "W": SensorDeviceClass.POWER,
+    "A": SensorDeviceClass.CURRENT,
+    "V": SensorDeviceClass.VOLTAGE,
+    "Hz": SensorDeviceClass.FREQUENCY,
+    "\u00b0C": SensorDeviceClass.TEMPERATURE,
+    "VA": SensorDeviceClass.APPARENT_POWER,
+    "Wh": SensorDeviceClass.ENERGY,
+    "kWh": SensorDeviceClass.ENERGY,
+    # ``%`` intentionally has no device_class — it covers SOC, load percent,
+    # charge percent, etc. Mapping all of them to BATTERY mislabels load.
+}
+
+# Energy units accumulate; everything else is an instantaneous measurement.
+_TOTAL_UNITS = {"Wh", "kWh"}
+
+
+def _canon_unit(raw: Optional[str]) -> Optional[str]:
+    if not isinstance(raw, str):
+        return None
+    return _UNIT_ALIASES.get(raw.strip().lower())
+
+
+def _is_supported_unit(param: dict) -> bool:
+    return _canon_unit(param.get("unit")) is not None
+
+
 class InverterDynamicSensor(SensorBase):
     _attr_entity_category = EntityCategory.DIAGNOSTIC
 
@@ -24,36 +90,22 @@ class InverterDynamicSensor(SensorBase):
                  sensor_source: DessSensorSource):
         """Initialize the sensor."""
         super().__init__(inverter_device, coordinator)
-        # "par": "bt_battery_charging_current",
-        # "name": "Battery Charging Current",
-        # "val": "0.0000",
-        # "unit": "A"
         self._sensor_par_id = sensor_data['par']
         self._sensor_source = sensor_source
         self._attr_unique_id = f"{self._inverter_device.inverter_id}_raw_{sensor_data['par']}"
         self._attr_name = f"{self._inverter_device.name} Raw {sensor_data['name']}"
 
-        device_class_map = {
-            'kW': SensorDeviceClass.POWER,
-            'W': SensorDeviceClass.POWER,
-            'A': SensorDeviceClass.CURRENT,
-            'V': SensorDeviceClass.VOLTAGE,
-            'HZ': SensorDeviceClass.FREQUENCY,
-            '%': SensorDeviceClass.BATTERY,
-        }
-        unit_map = {
-            'kW': UnitOfPower.KILO_WATT,
-            'W': UnitOfPower.WATT,
-            'A': UnitOfElectricCurrent.AMPERE,
-            'V': UnitOfElectricPotential.VOLT,
-            'HZ': UnitOfFrequency.HERTZ,
-            '%': PERCENTAGE,
-        }
-        unit = sensor_data.get('unit')
-        display_unit = unit_map.get(unit)
-        self._attr_device_class = device_class_map.get(unit)
-        self._attr_unit_of_measurement = display_unit
+        unit = _canon_unit(sensor_data.get('unit'))
+        display_unit = _UNIT_DISPLAY.get(unit) if unit else None
+        self._attr_device_class = _UNIT_DEVICE_CLASS.get(unit) if unit else None
         self._attr_native_unit_of_measurement = display_unit
+        if unit in _TOTAL_UNITS:
+            # We can't tell from raw data whether the counter monotonically
+            # increases, but TOTAL covers both monotonic and resettable cases
+            # and lets long-term statistics work.
+            self._attr_state_class = SensorStateClass.TOTAL
+        elif unit is not None:
+            self._attr_state_class = SensorStateClass.MEASUREMENT
         self._attr_native_value = safe_float(sensor_data.get('val'), default=None)
 
     @callback

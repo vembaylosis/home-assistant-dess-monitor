@@ -8,12 +8,14 @@ from homeassistant.core import HomeAssistant, callback
 from homeassistant.helpers.aiohttp_client import async_get_clientsession
 
 from custom_components.dess_monitor.auth_store import HomeAssistantTokenStorage
+from custom_components.dess_monitor.const import CONF_ENABLE_WEBSOCKET, DEFAULT_ENABLE_WEBSOCKET
 from custom_components.dess_monitor.coordinators.coordinator import MainCoordinator
 from custom_components.dess_monitor.coordinators.direct_coordinator import DirectCoordinator
 from custom_components.dess_monitor.device_cache import DeviceCache
 from custom_components.dess_monitor.mapping import MappingDiscovery
 from custom_components.dess_monitor.mapping_store import HomeAssistantMappingStorage
 from custom_components.dess_monitor.sdk import Credentials, DessmonitorClient
+from custom_components.dess_monitor.stream_manager import DeviceStreamManager
 from . import hub
 
 # List of platforms to support. There should be a matching .py file for each,
@@ -57,6 +59,11 @@ async def async_setup_entry(hass: HomeAssistant, entry: HubConfigEntry) -> bool:
     # Sensors set up above may have triggered discovery — flush once now.
     if mapping.is_dirty:
         hass.async_create_task(mapping.async_save())
+
+    if entry.options.get(CONF_ENABLE_WEBSOCKET, DEFAULT_ENABLE_WEBSOCKET):
+        stream_manager = DeviceStreamManager(hass, client, my_coordinator)
+        await stream_manager.async_start()
+        entry.async_on_unload(stream_manager.async_stop)
 
     entry.async_on_unload(entry.add_update_listener(_update_listener))
     return True

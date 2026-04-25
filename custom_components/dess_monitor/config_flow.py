@@ -16,9 +16,11 @@ from .const import (  # pylint:disable=unused-import
     CONF_MAIN_UPDATE_INTERVAL,
     CONF_DIRECT_UPDATE_INTERVAL,
     CONF_DYNAMIC_SETTINGS_INTERVAL,
+    CONF_ENABLE_WEBSOCKET,
     DEFAULT_MAIN_UPDATE_INTERVAL,
     DEFAULT_DIRECT_UPDATE_INTERVAL,
     DEFAULT_DYNAMIC_SETTINGS_INTERVAL,
+    DEFAULT_ENABLE_WEBSOCKET,
     MIN_MAIN_UPDATE_INTERVAL,
     MAX_MAIN_UPDATE_INTERVAL,
     MIN_DIRECT_UPDATE_INTERVAL,
@@ -275,6 +277,12 @@ class OptionsFlow(config_entries.OptionsFlow):
                     vol.Coerce(int),
                     vol.Range(min=MIN_DYNAMIC_SETTINGS_INTERVAL, max=MAX_DYNAMIC_SETTINGS_INTERVAL),
                 ),
+                vol.Optional(
+                    CONF_ENABLE_WEBSOCKET,
+                    default=self._config_entry.options.get(
+                        CONF_ENABLE_WEBSOCKET, DEFAULT_ENABLE_WEBSOCKET,
+                    ),
+                ): bool,
             })
         )
 
