@@ -27,7 +27,8 @@ class MyEnergySensor(RestoreSensor, SensorBase):
 
     async def async_added_to_hass(self) -> None:
         if (last_sensor_data := await self.async_get_last_extra_data()) is not None:
-            self._attr_native_value = last_sensor_data.as_dict().get('native_value', 0)
+            restored = last_sensor_data.as_dict().get('native_value')
+            self._attr_native_value = 0 if restored is None else restored
         else:
             self._attr_native_value = 0
         self._is_restored_value = True
@@ -38,6 +39,8 @@ class MyEnergySensor(RestoreSensor, SensorBase):
         return self._inverter_device.online and self._inverter_device.hub.online and self._is_restored_value
 
     def update_energy_value(self, current_value: float):
+        if current_value is None:
+            return
         now = datetime.now()
         elapsed_seconds = int(now.timestamp() - self._prev_value_timestamp.timestamp())
         if self._prev_value is not None:
