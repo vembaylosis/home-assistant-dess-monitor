@@ -1,11 +1,12 @@
 from __future__ import annotations
 
-from typing import Any
+from typing import Any, Optional, Union
 
 from homeassistant.core import HomeAssistant
 
 from custom_components.dess_monitor.coordinators.coordinator import MainCoordinator
 from custom_components.dess_monitor.coordinators.direct_coordinator import DirectCoordinator
+from custom_components.dess_monitor.mapping import MappingDiscovery
 from custom_components.dess_monitor.sdk import DessmonitorClient
 
 
@@ -19,6 +20,7 @@ class Hub:
         client: DessmonitorClient,
         coordinator: MainCoordinator,
         direct_coordinator: DirectCoordinator,
+        mapping: MappingDiscovery,
     ) -> None:
         self._username = username
         self._hass = hass
@@ -26,6 +28,7 @@ class Hub:
         self._client = client
         self.coordinator = coordinator
         self.direct_coordinator = direct_coordinator
+        self._mapping = mapping
         self._id = username.lower()
         self.items: list[InverterDevice] = []
 
@@ -36,6 +39,10 @@ class Hub:
     @property
     def client(self) -> DessmonitorClient:
         return self._client
+
+    @property
+    def mapping(self) -> MappingDiscovery:
+        return self._mapping
 
     @property
     def online(self) -> bool:
@@ -68,3 +75,7 @@ class InverterDevice:
         if data is None or self.inverter_id not in data:
             return False
         return True
+
+    def resolve(self, canonical_name: str, data: dict[str, Any]) -> Optional[Union[float, str]]:
+        """Look up a canonical metric in this device's tick data."""
+        return self.hub.mapping.resolve(self._id, canonical_name, data)

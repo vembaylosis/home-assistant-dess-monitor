@@ -1,20 +1,39 @@
+"""Canonical metric resolvers — thin wrappers over the self-discovery layer.
+
+Each ``resolve_*`` function takes the per-device tick data plus the owning
+``InverterDevice`` and returns the normalised value. The legacy
+``data_keys_map.py`` / :func:`get_sensor_value_simple` path is no longer used —
+all lookups now go through :class:`MappingDiscovery`, which auto-detects the
+matching provider key the first time a device responds, pins it, and persists
+the choice across HA restarts.
+
+The one exception is :func:`resolve_last_sample_time`, which parses a free-form
+timestamp from the ``last_data`` envelope and isn't a per-key mapping.
+"""
+from __future__ import annotations
+
 import logging
-from datetime import datetime
+from datetime import datetime, timedelta
+from typing import TYPE_CHECKING, Any, Optional
 
 from homeassistant.util import dt as dt_util
 
-from custom_components.dess_monitor.api.helpers import get_sensor_value_simple, safe_float, \
-    get_sensor_value_simple_entry
+if TYPE_CHECKING:
+    from custom_components.dess_monitor.hub import InverterDevice
 
 _LOGGER = logging.getLogger(__name__)
 
 
+# --- last_sample_time (not a mapping resolver) -------------------------------
+
 _LAST_SAMPLE_TIME_DIAG_LOGGED: set[str] = set()
+_LAST_SAMPLE_TIME_TZ_OFFSET_HOURS: dict[str, int] = {}
 
 
-def resolve_last_sample_time(data, device_data):
+def resolve_last_sample_time(data: dict[str, Any], inverter_device: "InverterDevice") -> Optional[datetime]:
     """Return ``last_data.gts`` as an aware datetime (assumed in HA local TZ)."""
-    pn = (device_data or {}).get('pn') if isinstance(device_data, dict) else None
+    device_data = inverter_device.device_data if inverter_device is not None else None
+    pn = device_data.get('pn') if isinstance(device_data, dict) else None
     diag_key = str(pn) if pn else "?"
     last_data = data.get('last_data') if isinstance(data, dict) else None
     if not isinstance(last_data, dict):
@@ -67,198 +86,165 @@ def resolve_last_sample_time(data, device_data):
         return None
     if parsed.tzinfo is None:
         parsed = parsed.replace(tzinfo=dt_util.DEFAULT_TIME_ZONE)
+
+    # The cloud encodes gts in its own server timezone as if it were UTC ms.
+    # Calibrate once per device: round (now - parsed) to whole hours and keep that
+    # as the server's TZ offset, then apply it to every subsequent sample so
+    # relative freshness is preserved.
+    if pn:
+        offset = _LAST_SAMPLE_TIME_TZ_OFFSET_HOURS.get(str(pn))
+        if offset is None:
+            diff_hours = (dt_util.utcnow() - parsed).total_seconds() / 3600.0
+            offset = int(round(diff_hours))
+            _LAST_SAMPLE_TIME_TZ_OFFSET_HOURS[str(pn)] = offset
+            if offset:
+                _LOGGER.info("last_sample_time[%s]: server TZ offset detected = %+d h",
+                             pn, offset)
+        if offset:
+            parsed = parsed + timedelta(hours=offset)
     return parsed
 
 
-def resolve_battery_charging_current(data, device_data):
-    raw = get_sensor_value_simple("battery_charging_current", data, device_data)
-    return max(safe_float(raw), 0.0)
+# --- mapping-backed resolvers ------------------------------------------------
+
+def _resolve(inverter_device: "InverterDevice", canonical: str, data: dict[str, Any]):
+    return inverter_device.resolve(canonical, data)
 
 
-def resolve_battery_charging_voltage(data, device_data):
-    return safe_float(get_sensor_value_simple("battery_charging_voltage", data, device_data))
+def resolve_battery_voltage(data, inverter_device):
+    return _resolve(inverter_device, "battery_voltage", data)
 
 
-def resolve_battery_discharge_current(
-        data,
-        device_data,
-) -> float:
-    """
-    Для поля bt_eybond_read_29 — возвращает ABS только для отрицательных значений,
-    иначе 0.0.
-    Для всех остальных полей — возвращает значение как есть (может быть +
-    или −).
-    Если ничего не найдено — 0.0.
-    """
-    found = get_sensor_value_simple_entry("battery_discharge_current", data, device_data)
-    if not found:
-        return 0.0
-
-    key, raw_val, unit = found
-    value = safe_float(raw_val)
-
-    if key == "bt_eybond_read_29" or key == "Battery Current":
-        # Только отрицательный ток разряда, положительный — в 0
-        return abs(value) if value < 0 else 0.0
-    else:
-        # Для прочих сенсоров возвращаем значение напрямую
-        return value
+def resolve_battery_charging_voltage(data, inverter_device):
+    return _resolve(inverter_device, "battery_charging_voltage", data)
 
 
-def resolve_battery_voltage(data, device_data):
-    return safe_float(get_sensor_value_simple("battery_voltage", data, device_data))
+def resolve_battery_charging_current(data, inverter_device):
+    val = _resolve(inverter_device, "battery_charging_current", data)
+    if val is None:
+        return None
+    return max(val, 0.0)
 
 
-def resolve_battery_charging_power(data, device_data):
-    found = get_sensor_value_simple_entry("battery_active_power", data, device_data)
-    if found:
-        key, raw_val, unit = found
-        value = safe_float(raw_val)
-        if unit == 'kW':
-            value *= 1000
-        if value > 0:
-            return value
-        else:
-            return 0.0
-    current = resolve_battery_charging_current(data, device_data)
-    voltage = resolve_battery_charging_voltage(data, device_data) or resolve_battery_voltage(data, device_data)
+def resolve_battery_discharge_current(data, inverter_device):
+    return _resolve(inverter_device, "battery_discharge_current", data)
+
+
+def resolve_battery_charging_power(data, inverter_device):
+    """Prefer signed ``battery_active_power`` (positive half); fall back to V·A."""
+    val = _resolve(inverter_device, "battery_charging_power", data)
+    if val is not None:
+        return val
+    # Fallback: charge_current * (charge_voltage or battery_voltage).
+    current = _resolve(inverter_device, "battery_charging_current", data)
+    voltage = (
+            _resolve(inverter_device, "battery_charging_voltage", data)
+            or _resolve(inverter_device, "battery_voltage", data)
+    )
+    if current is None or voltage is None:
+        return None
     return current * voltage
 
 
-def resolve_battery_discharge_power(data, device_data):
-    found = get_sensor_value_simple_entry("battery_active_power", data, device_data)
-    if found:
-        key, raw_val, unit = found
-        value = safe_float(raw_val)
-        if unit == 'kW':
-            value *= 1000
-        if value < 0:
-            return abs(value)
-        else:
-            return 0.0
-    return resolve_battery_discharge_current(data, device_data) * resolve_battery_voltage(data, device_data)
-
-
-def resolve_active_load_power(data, device_data):
-    return safe_float(get_sensor_value_simple("active_load_power", data, device_data)) * 1000
-
-
-def resolve_active_load_percentage(data, device_data):
-    return safe_float(get_sensor_value_simple("active_load_percentage", data, device_data))
-
-
-def resolve_output_priority(data, device_data):
-    mapper = {
-        'uti': 'Utility', 'utility': 'Utility',
-        'sbu': 'SBU', 'sol': 'Solar', 'solar': 'Solar',
-        'solar first': 'Solar', 'sbu first': 'SBU', 'utility first': 'Utility',
-    }
-    raw = get_sensor_value_simple("output_priority", data, device_data)
-    if raw is None:
+def resolve_battery_discharge_power(data, inverter_device):
+    """Prefer signed ``battery_active_power`` (negative half, abs'd); else V·A."""
+    val = _resolve(inverter_device, "battery_discharge_power", data)
+    if val is not None:
+        return val
+    current = _resolve(inverter_device, "battery_discharge_current", data)
+    voltage = _resolve(inverter_device, "battery_voltage", data)
+    if current is None or voltage is None:
         return None
-    return mapper.get(raw.lower(), None)
+    return current * voltage
 
 
-def resolve_charge_priority(data, device_data):
-    mapper = {
-        'solar priority': 'SOLAR_PRIORITY',
-        'solar and mains': 'SOLAR_AND_UTILITY',
-        'solar only': 'SOLAR_ONLY',
-        'n/a': 'NONE',
-    }
-    raw = get_sensor_value_simple("charge_priority", data, device_data)
-    if raw is None:
-        return None
-    return mapper.get(raw.lower(), None)
+def resolve_active_load_power(data, inverter_device):
+    return _resolve(inverter_device, "active_load_power", data)
 
 
-def resolve_grid_in_power(data, device_data):
-    return safe_float(get_sensor_value_simple("grid_in_power", data, device_data))
+def resolve_active_load_percentage(data, inverter_device):
+    return _resolve(inverter_device, "active_load_percentage", data)
 
 
-def resolve_battery_capacity(data, device_data):
-    return safe_float(get_sensor_value_simple("battery_capacity", data, device_data))
+def resolve_output_priority(data, inverter_device):
+    return _resolve(inverter_device, "output_priority", data)
 
 
-def resolve_grid_frequency(data, device_data):
-    return safe_float(get_sensor_value_simple("grid_frequency", data, device_data), default=None)
+def resolve_charge_priority(data, inverter_device):
+    return _resolve(inverter_device, "charge_priority", data)
 
 
-def resolve_pv_power(data, device_data):
-    found = (get_sensor_value_simple_entry("pv_power", data, device_data))
-
-    if not found:
-        return None
-
-    key, raw_val, unit = found
-    val = safe_float(raw_val)
-    if unit == 'kW':
-        val *= 1000
-
-    return val
+def resolve_mains_status(data, inverter_device):
+    return _resolve(inverter_device, "mains_status", data)
 
 
-def resolve_pv2_power(data, device_data):
-    found = (get_sensor_value_simple_entry("pv2_power", data, device_data))
-
-    if not found:
-        return None
-
-    key, raw_val, unit = found
-    val = safe_float(raw_val)
-    if unit == 'kW':
-        val *= 1000
-
-    return val
+def resolve_grid_in_power(data, inverter_device):
+    return _resolve(inverter_device, "grid_in_power", data)
 
 
-def resolve_pv_voltage(data, device_data):
-    return safe_float(get_sensor_value_simple("pv_voltage", data, device_data), default=None)
+def resolve_battery_capacity(data, inverter_device):
+    return _resolve(inverter_device, "battery_capacity", data)
 
 
-def resolve_pv2_voltage(data, device_data):
-    return safe_float(get_sensor_value_simple("pv2_voltage", data, device_data), default=None)
+def resolve_grid_frequency(data, inverter_device):
+    return _resolve(inverter_device, "grid_frequency", data)
 
 
-def resolve_grid_input_voltage(data, device_data):
-    return safe_float(get_sensor_value_simple("grid_input_voltage", data, device_data), default=None)
+def resolve_pv_power(data, inverter_device):
+    return _resolve(inverter_device, "pv_power", data)
 
 
-def resolve_grid_output_voltage(data, device_data):
-    return safe_float(get_sensor_value_simple("grid_output_voltage", data, device_data), default=None)
+def resolve_pv2_power(data, inverter_device):
+    return _resolve(inverter_device, "pv2_power", data)
 
 
-def resolve_dc_module_temperature(data, device_data):
-    return safe_float(get_sensor_value_simple("dc_module_temperature", data, device_data), default=None)
+def resolve_pv_voltage(data, inverter_device):
+    return _resolve(inverter_device, "pv_voltage", data)
 
 
-def resolve_inv_temperature(data, device_data):
-    return safe_float(get_sensor_value_simple("inv_temperature", data, device_data), default=None)
+def resolve_pv2_voltage(data, inverter_device):
+    return _resolve(inverter_device, "pv2_voltage", data)
 
 
-def resolve_bt_utility_charge(data, device_data):
-    return safe_float(get_sensor_value_simple("bt_utility_charge", data, device_data), default=None)
+def resolve_grid_input_voltage(data, inverter_device):
+    return _resolve(inverter_device, "grid_input_voltage", data)
 
 
-def resolve_bt_total_charge_current(data, device_data):
-    return safe_float(get_sensor_value_simple("bt_total_charge_current", data, device_data), default=None)
+def resolve_grid_output_voltage(data, inverter_device):
+    return _resolve(inverter_device, "grid_output_voltage", data)
 
 
-def resolve_bt_cutoff_voltage(data, device_data):
-    return safe_float(get_sensor_value_simple("bt_cutoff_voltage", data, device_data), default=None)
+def resolve_dc_module_temperature(data, inverter_device):
+    return _resolve(inverter_device, "dc_module_temperature", data)
 
 
-def resolve_sy_nominal_out_power(data, device_data):
-    return safe_float(get_sensor_value_simple("sy_nominal_out_power", data, device_data), default=None)
+def resolve_inv_temperature(data, inverter_device):
+    return _resolve(inverter_device, "inv_temperature", data)
 
 
-def resolve_sy_rated_battery_voltage(data, device_data):
-    return safe_float(get_sensor_value_simple("sy_rated_battery_voltage", data, device_data), default=None)
+def resolve_bt_utility_charge(data, inverter_device):
+    return _resolve(inverter_device, "bt_utility_charge", data)
 
 
-def resolve_bt_comeback_utility_voltage(data, device_data):
-    return safe_float(get_sensor_value_simple("bt_comeback_utility_voltage", data, device_data), default=None)
+def resolve_bt_total_charge_current(data, inverter_device):
+    return _resolve(inverter_device, "bt_total_charge_current", data)
 
 
-def resolve_bt_comeback_battery_voltage(data, device_data):
-    return safe_float(get_sensor_value_simple("bt_comeback_battery_voltage", data, device_data), default=None)
+def resolve_bt_cutoff_voltage(data, inverter_device):
+    return _resolve(inverter_device, "bt_cutoff_voltage", data)
+
+
+def resolve_sy_nominal_out_power(data, inverter_device):
+    return _resolve(inverter_device, "sy_nominal_out_power", data)
+
+
+def resolve_sy_rated_battery_voltage(data, inverter_device):
+    return _resolve(inverter_device, "sy_rated_battery_voltage", data)
+
+
+def resolve_bt_comeback_utility_voltage(data, inverter_device):
+    return _resolve(inverter_device, "bt_comeback_utility_voltage", data)
+
+
+def resolve_bt_comeback_battery_voltage(data, inverter_device):
+    return _resolve(inverter_device, "bt_comeback_battery_voltage", data)

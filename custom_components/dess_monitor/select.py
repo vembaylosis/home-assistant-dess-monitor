@@ -111,15 +111,20 @@ class InverterOutputPrioritySelect(SelectBase):
         self._attr_options = ['Utility', 'Solar', 'SBU']
 
         if coordinator.data is not None:
-            data = coordinator.data[self._inverter_device.inverter_id]
-            device_data = self._inverter_device.device_data
-            self._attr_current_option = resolve_output_priority(data, device_data)
+            data = coordinator.data.get(self._inverter_device.inverter_id)
+            if data is not None:
+                self._attr_current_option = resolve_output_priority(data, self._inverter_device)
 
     @callback
     def _handle_coordinator_update(self) -> None:
-        data = self.coordinator.data[self._inverter_device.inverter_id]
-        device_data = self._inverter_device.device_data
-        self._attr_current_option = resolve_output_priority(data, device_data)
+        data = (self.coordinator.data or {}).get(self._inverter_device.inverter_id)
+        if data is None:
+            self._attr_current_option = None
+        else:
+            try:
+                self._attr_current_option = resolve_output_priority(data, self._inverter_device)
+            except Exception:
+                self._attr_current_option = None
         self.async_write_ha_state()
 
     async def async_select_option(self, option: str):

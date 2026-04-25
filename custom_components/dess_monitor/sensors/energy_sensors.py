@@ -87,9 +87,8 @@ class FunctionBasedEnergySensor(MyEnergySensor):
         data = self.data
         if data is None:
             return
-        device_data = self._inverter_device.device_data
         try:
-            current_value = self._resolve_function(data, device_data)
+            current_value = self._resolve_function(data, self._inverter_device)
         except Exception:
             return
         self.update_energy_value(current_value)

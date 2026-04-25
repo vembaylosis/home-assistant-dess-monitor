@@ -99,7 +99,7 @@ class ValueResolvingSensor(SensorBase):
             try:
                 self._attr_native_value = self._resolve_fn(
                     data,
-                    self._inverter_device.device_data
+                    self._inverter_device,
                 )
             except Exception:
                 _LOGGER.exception(
@@ -263,6 +263,19 @@ class InverterChargePrioritySensor(ValueResolvingSensor):
     def __init__(self, inverter_device, coordinator):
         super().__init__(inverter_device, coordinator, "Charge Priority", "charge_priority", resolve_charge_priority,
                          SensorDeviceClass.ENUM, None, entity_category=EntityCategory.DIAGNOSTIC)
+
+
+_MAINS_STATUS_OPTIONS = ['BATTERY', 'GRID', 'SOLAR', 'HYBRID', 'STANDBY', 'FAULT', 'OFF']
+
+
+class InverterMainsStatusSensor(ValueResolvingSensor):
+    """Operating mode of the inverter — drives 'is grid live?' automations."""
+
+    _attr_options = _MAINS_STATUS_OPTIONS
+
+    def __init__(self, inverter_device, coordinator):
+        super().__init__(inverter_device, coordinator, "Mains Status", "mains_status", resolve_mains_status,
+                         SensorDeviceClass.ENUM, None)
 
 
 class InverterConfigBTUtilityChargeSensor(ValueResolvingSensor):

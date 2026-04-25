@@ -4,13 +4,15 @@ import asyncio
 
 from homeassistant.config_entries import ConfigEntry
 from homeassistant.const import Platform
-from homeassistant.core import HomeAssistant
+from homeassistant.core import HomeAssistant, callback
 from homeassistant.helpers.aiohttp_client import async_get_clientsession
 
 from custom_components.dess_monitor.auth_store import HomeAssistantTokenStorage
 from custom_components.dess_monitor.coordinators.coordinator import MainCoordinator
 from custom_components.dess_monitor.coordinators.direct_coordinator import DirectCoordinator
 from custom_components.dess_monitor.device_cache import DeviceCache
+from custom_components.dess_monitor.mapping import MappingDiscovery
+from custom_components.dess_monitor.mapping_store import HomeAssistantMappingStorage
 from custom_components.dess_monitor.sdk import Credentials, DessmonitorClient
 from . import hub
 
@@ -33,6 +35,8 @@ async def async_setup_entry(hass: HomeAssistant, entry: HubConfigEntry) -> bool:
         storage=HomeAssistantTokenStorage(hass, entry.entry_id, username),
     )
     device_cache = DeviceCache(hass, entry.entry_id)
+    mapping = MappingDiscovery(HomeAssistantMappingStorage(hass, entry.entry_id))
+    await mapping.async_load()
     my_coordinator = MainCoordinator(hass, entry, client, device_cache)
     direct_coordinator_ctx = DirectCoordinator(hass, entry, client, device_cache)
     await asyncio.gather(
@@ -40,9 +44,20 @@ async def async_setup_entry(hass: HomeAssistant, entry: HubConfigEntry) -> bool:
         direct_coordinator_ctx.async_config_entry_first_refresh()
     )
 
-    entry.runtime_data = hub.Hub(hass, username, client, my_coordinator, direct_coordinator_ctx)
+    entry.runtime_data = hub.Hub(hass, username, client, my_coordinator, direct_coordinator_ctx, mapping)
     await entry.runtime_data.init()
     await hass.config_entries.async_forward_entry_setups(entry, PLATFORMS)
+
+    @callback
+    def _flush_mapping_if_dirty() -> None:
+        if mapping.is_dirty:
+            hass.async_create_task(mapping.async_save())
+
+    entry.async_on_unload(my_coordinator.async_add_listener(_flush_mapping_if_dirty))
+    # Sensors set up above may have triggered discovery — flush once now.
+    if mapping.is_dirty:
+        hass.async_create_task(mapping.async_save())
+
     entry.async_on_unload(entry.add_update_listener(_update_listener))
     return True
 
@@ -61,6 +76,7 @@ async def async_remove_entry(hass: HomeAssistant, entry: ConfigEntry) -> None:
     )
     await storage.clear()
     await DeviceCache(hass, entry.entry_id).async_clear()
+    await HomeAssistantMappingStorage(hass, entry.entry_id).clear()
 
 
 async def _update_listener(hass: HomeAssistant, entry: ConfigEntry) -> None:
