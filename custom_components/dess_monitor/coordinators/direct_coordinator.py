@@ -21,7 +21,7 @@ from custom_components.dess_monitor.const import (
 )
 from custom_components.dess_monitor.coordinators.coordinator import _clamp
 from custom_components.dess_monitor.device_cache import DeviceCache
-from custom_components.dess_monitor.sdk import AuthError, DessmonitorClient
+from custom_components.dess_monitor.sdk import AuthError, DessmonitorClient, TransportError
 
 _LOGGER = logging.getLogger(__name__)
 
@@ -105,3 +105,7 @@ class DirectCoordinator(DataUpdateCoordinator):
         except AuthError as err:
             await self._client.session.invalidate()
             raise UpdateFailed("auth token invalidated, will re-issue next tick") from err
+        except TransportError as err:
+            # Wrap as UpdateFailed so HA logs a single WARNING line instead
+            # of the full aiohttp + SDK traceback every time the cloud blips.
+            raise UpdateFailed(f"DESS cloud transient: {err}") from err

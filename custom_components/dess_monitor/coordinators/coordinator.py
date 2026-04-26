@@ -24,6 +24,7 @@ from custom_components.dess_monitor.sdk import (
     AuthError,
     DessmonitorClient,
     DeviceIdentity,
+    TransportError,
 )
 
 _LOGGER = logging.getLogger(__name__)
@@ -34,9 +35,23 @@ T = TypeVar("T")
 async def safe_call(coro: Coroutine[Any, Any, T] | Awaitable[T], default: T | None = None) -> T | None:
     try:
         return await coro
+    except TransportError as err:
+        # Cloud timeout / network blip — expected with this provider. Log a
+        # one-line WARNING so HA logs stay readable; the upstream stack frames
+        # don't add diagnostic value when we already know it's the wire.
+        _LOGGER.warning("DESS cloud transient (%s): %s", _action_of(err), err)
+        return default
+    except asyncio.TimeoutError as err:
+        _LOGGER.warning("DESS cloud timed out: %s", err)
+        return default
     except Exception:
         _LOGGER.exception("Error while awaiting %s", coro)
         return default
+
+
+def _action_of(err: BaseException) -> str:
+    """Best-effort label for which API call timed out (helps grep the logs)."""
+    return getattr(err, "action", None) or type(err).__name__
 
 
 def _clamp(value: object, low: int, high: int) -> int:
@@ -145,3 +160,8 @@ class MainCoordinator(DataUpdateCoordinator):
         except AuthError as err:
             await self._client.session.invalidate()
             raise UpdateFailed("auth token invalidated, will re-issue next tick") from err
+        except TransportError as err:
+            # Wrap as UpdateFailed so HA's DataUpdateCoordinator logs a single
+            # WARNING line ("Error fetching ... data: ...") instead of the
+            # full aiohttp + SDK traceback.
+            raise UpdateFailed(f"DESS cloud transient: {err}") from err
