@@ -1,6 +1,5 @@
 from typing import Any, Dict, Optional
 
-from custom_components.dess_monitor.api.commands.direct_commands import decode_direct_response, get_command_hex
 from custom_components.dess_monitor.api.resolvers.data_keys_map import SENSOR_KEYS_MAP
 from custom_components.dess_monitor.sdk import DessmonitorClient, DeviceIdentity
 
@@ -215,13 +214,3 @@ async def get_inverter_output_priority(
     return map_param_value[val]
 
 
-async def get_direct_data(
-    client: DessmonitorClient,
-    device_data: Dict[str, Any],
-    cmd_name: str,
-) -> Any:
-    result = await client.control.send_direct_command(
-        DeviceIdentity.from_dict(device_data),
-        get_command_hex(cmd_name),
-    )
-    return decode_direct_response(cmd_name, result['dat'])

@@ -12,10 +12,17 @@ from homeassistant.helpers.update_coordinator import (
     UpdateFailed,
 )
 
-from custom_components.dess_monitor.api.helpers import get_direct_data
+from custom_components.dess_monitor.api.direct_service import DirectService
+from custom_components.dess_monitor.api.protocols import Pi18Protocol, Smg2ModbusProtocol
+from custom_components.dess_monitor.api.protocols.base import ProtocolBinding
+from custom_components.dess_monitor.api.transports import CloudHexTransport
 from custom_components.dess_monitor.const import (
+    CONF_DIRECT_PROTOCOL,
     CONF_DIRECT_UPDATE_INTERVAL,
+    DEFAULT_DIRECT_PROTOCOL,
     DEFAULT_DIRECT_UPDATE_INTERVAL,
+    DIRECT_PROTOCOL_PI18,
+    DIRECT_PROTOCOL_SMG2,
     MIN_DIRECT_UPDATE_INTERVAL,
     MAX_DIRECT_UPDATE_INTERVAL,
 )
@@ -26,8 +33,40 @@ from custom_components.dess_monitor.sdk import AuthError, DessmonitorClient, Tra
 _LOGGER = logging.getLogger(__name__)
 
 
+# Poll plans per protocol. Sensors read by *section name* (``qpigs``/``qpiri``/
+# ``qpigs2``), insulated from which underlying command produced the data.
+_AXPERT_BINDING = ProtocolBinding(
+    protocol_name="axpert",
+    sections={
+        "qpigs": "QPIGS",
+        "qpigs2": "QPIGS2",
+        "qpiri": "QPIRI",
+    },
+)
+
+# SMG-II Modbus has no QPIGS2 register block; skipping it keeps the polling
+# loop quick rather than wasting a transaction on an "unsupported" reply.
+_SMG2_BINDING = ProtocolBinding(
+    protocol_name="smg2_modbus",
+    sections={
+        "qpigs": "QPIGS",
+        "qpiri": "QPIRI",
+    },
+)
+
+# PI18 packs PV1+PV2 into a single GS reply, so there's no separate QPIGS2
+# command to fan out. Same shape as SMG-II from the binding's POV.
+_PI18_BINDING = ProtocolBinding(
+    protocol_name="pi18",
+    sections={
+        "qpigs": "QPIGS",
+        "qpiri": "QPIRI",
+    },
+)
+
+
 class DirectCoordinator(DataUpdateCoordinator):
-    """Polls inverter direct-protocol commands (QPIGS, QPIGS2, QPIRI)."""
+    """Polls inverter direct-protocol commands described by a ProtocolBinding."""
     devices: list[dict[str, Any]] = []
 
     def __init__(
@@ -36,6 +75,9 @@ class DirectCoordinator(DataUpdateCoordinator):
         config_entry: Any,
         client: DessmonitorClient,
         device_cache: DeviceCache,
+        *,
+        service: DirectService | None = None,
+        binding: ProtocolBinding | None = None,
     ) -> None:
         interval_seconds = _clamp(
             config_entry.options.get(CONF_DIRECT_UPDATE_INTERVAL, DEFAULT_DIRECT_UPDATE_INTERVAL),
@@ -53,6 +95,37 @@ class DirectCoordinator(DataUpdateCoordinator):
         self._update_timeout = max(interval_seconds, 30)
         self._client = client
         self._device_cache = device_cache
+
+        protocol_name = config_entry.options.get(
+            CONF_DIRECT_PROTOCOL, DEFAULT_DIRECT_PROTOCOL
+        )
+
+        # Always cloud transport; only the codec on top differs. The DESS
+        # relay forwards opaque bytes to the inverter's serial line, so
+        # whether we ship Voltronic ASCII or a Modbus RTU frame is purely
+        # a protocol-side concern.
+        if service is None:
+            transport = CloudHexTransport(client)
+            if protocol_name == DIRECT_PROTOCOL_SMG2:
+                service = DirectService(transport, protocol=Smg2ModbusProtocol())
+                default_binding = _SMG2_BINDING
+            elif protocol_name == DIRECT_PROTOCOL_PI18:
+                service = DirectService(transport, protocol=Pi18Protocol())
+                default_binding = _PI18_BINDING
+            else:
+                service = DirectService(transport)
+                default_binding = _AXPERT_BINDING
+        else:
+            if protocol_name == DIRECT_PROTOCOL_SMG2:
+                default_binding = _SMG2_BINDING
+            elif protocol_name == DIRECT_PROTOCOL_PI18:
+                default_binding = _PI18_BINDING
+            else:
+                default_binding = _AXPERT_BINDING
+
+        self._service = service
+        self._binding = binding or default_binding
+        self._protocol_name = protocol_name
 
     @property
     def client(self) -> DessmonitorClient:
@@ -89,14 +162,10 @@ class DirectCoordinator(DataUpdateCoordinator):
                 self.devices = await self.get_active_devices()
 
                 async def fetch_device_data(device: dict[str, Any]) -> tuple[str, dict[str, Any]]:
-                    qpigs = await get_direct_data(self._client, device, 'QPIGS')
-                    qpigs2 = await get_direct_data(self._client, device, 'QPIGS2')
-                    qpiri = await get_direct_data(self._client, device, 'QPIRI')
-                    return device['pn'], {
-                        'qpigs': qpigs,
-                        'qpigs2': qpigs2,
-                        'qpiri': qpiri,
-                    }
+                    sections: dict[str, Any] = {}
+                    for section, command in self._binding.sections.items():
+                        sections[section] = await self._service.query(device, command)
+                    return device['pn'], sections
 
                 results = await asyncio.gather(*map(fetch_device_data, self.devices))
                 return dict(results)
