@@ -18,11 +18,13 @@ from .const import (  # pylint:disable=unused-import
     CONF_DYNAMIC_SETTINGS_INTERVAL,
     CONF_ENABLE_WEBSOCKET,
     CONF_BATTERY_VIRTUAL_ENABLED,
+    CONF_ENABLE_LAST_AT_SENSORS,
     DEFAULT_MAIN_UPDATE_INTERVAL,
     DEFAULT_DIRECT_UPDATE_INTERVAL,
     DEFAULT_DYNAMIC_SETTINGS_INTERVAL,
     DEFAULT_ENABLE_WEBSOCKET,
     DEFAULT_BATTERY_VIRTUAL_ENABLED,
+    DEFAULT_ENABLE_LAST_AT_SENSORS,
     MIN_MAIN_UPDATE_INTERVAL,
     MAX_MAIN_UPDATE_INTERVAL,
     MIN_DIRECT_UPDATE_INTERVAL,
@@ -289,6 +291,12 @@ class OptionsFlow(config_entries.OptionsFlow):
                     CONF_BATTERY_VIRTUAL_ENABLED,
                     default=self._config_entry.options.get(
                         CONF_BATTERY_VIRTUAL_ENABLED, DEFAULT_BATTERY_VIRTUAL_ENABLED,
+                    ),
+                ): bool,
+                vol.Optional(
+                    CONF_ENABLE_LAST_AT_SENSORS,
+                    default=self._config_entry.options.get(
+                        CONF_ENABLE_LAST_AT_SENSORS, DEFAULT_ENABLE_LAST_AT_SENSORS,
                     ),
                 ): bool,
             })

@@ -5,7 +5,9 @@ from homeassistant.helpers.entity_platform import AddEntitiesCallback
 
 from custom_components.dess_monitor.const import (
     CONF_BATTERY_VIRTUAL_ENABLED,
+    CONF_ENABLE_LAST_AT_SENSORS,
     DEFAULT_BATTERY_VIRTUAL_ENABLED,
+    DEFAULT_ENABLE_LAST_AT_SENSORS,
 )
 from custom_components.dess_monitor.sensors.direct_sensor import DIRECT_SENSORS, generate_qpiri_sensors
 from . import HubConfigEntry
@@ -27,8 +29,15 @@ async def async_setup_entry(
     virtual_battery_enabled = config_entry.options.get(
         CONF_BATTERY_VIRTUAL_ENABLED, DEFAULT_BATTERY_VIRTUAL_ENABLED,
     )
+    last_at_enabled = config_entry.options.get(
+        CONF_ENABLE_LAST_AT_SENSORS, DEFAULT_ENABLE_LAST_AT_SENSORS,
+    )
     for item in hub.items:
         new_devices.extend(create_static_sensors(item, hub.coordinator))
+
+        if last_at_enabled:
+            new_devices.append(InverterLastSampleTimeSensor(item, hub.coordinator))
+            new_devices.append(InverterWebSocketLastFrameSensor(item, hub.coordinator))
 
         if virtual_battery_enabled:
             new_devices.append(VirtualBatterySocSensor(item, hub.coordinator))
@@ -75,8 +84,6 @@ def create_static_sensors(item, coordinator):
         # Inverter sensors
         InverterStatusSensor,
         InverterMainsStatusSensor,
-        InverterLastSampleTimeSensor,
-        InverterWebSocketLastFrameSensor,
         InverterOutputPrioritySensor,
         InverterOutputVoltageSensor,
         InverterOutputPowerSensor,

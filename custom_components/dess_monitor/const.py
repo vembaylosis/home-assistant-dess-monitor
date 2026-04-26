@@ -53,6 +53,13 @@ MAX_BATTERY_VOLTAGE_FULL = 1000.0
 
 BATTERY_CHEMISTRIES = ("lifepo4", "lead_acid", "li_ion", "generic")
 
+# "Freshness" / liveness diagnostic sensors (``Last Sample Time``,
+# ``WebSocket Last Frame At``). Useful for debugging cloud lag, but they can
+# clutter the device page for users who only care about real metrics — gated
+# behind an explicit opt-in.
+CONF_ENABLE_LAST_AT_SENSORS = "enable_last_at_sensors"
+DEFAULT_ENABLE_LAST_AT_SENSORS = False
+
 # When the absolute charging current drops below this fraction of capacity_ah
 # AND voltage is at/above full, we treat the bank as fully absorbed and
 # rebase SOC to 100%. 2% of C is the conventional end-of-charge tail.
