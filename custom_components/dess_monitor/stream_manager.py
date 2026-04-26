@@ -160,10 +160,9 @@ class DeviceStreamManager:
         if not isinstance(coord_data, dict):
             self._pending.clear()
             return
-        # Build a NEW top-level dict so HA's equality check inside
-        # ``async_set_updated_data`` (with ``always_update=False``) sees a
-        # different reference and fires the listeners. Merging in-place would
-        # be silently no-op'd.
+        # Build a NEW top-level dict so listener equality checks see a
+        # different reference and rerender entities. Merging in-place would
+        # be silently no-op'd by anything diffing on identity.
         new_coord_data = dict(coord_data)
         for pn in dirty:
             patch = self._pending.pop(pn, None)
@@ -174,4 +173,14 @@ class DeviceStreamManager:
                 continue
             new_coord_data[pn] = {**existing, **patch}
         _LOGGER.debug("WS pushing refresh for %d device(s): %s", len(dirty), sorted(dirty))
-        self._coordinator.async_set_updated_data(new_coord_data)
+        # Push directly to listeners WITHOUT going through
+        # ``async_set_updated_data``: that helper cancels and reschedules the
+        # coordinator's polling timer, so a steady stream of WS frames
+        # (faster than ``update_interval``) starves the polled endpoints of
+        # ever firing again. Polled subtrees would then sit frozen, and any
+        # canonical metric not present in WS (voltages, currents, capacity,
+        # temperatures, frequency, ...) would visibly stop updating while
+        # power keeps moving — which is exactly the regression we hit.
+        self._coordinator.data = new_coord_data
+        self._coordinator.last_update_success = True
+        self._coordinator.async_update_listeners()
