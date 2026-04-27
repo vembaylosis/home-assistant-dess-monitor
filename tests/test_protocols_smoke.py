@@ -391,6 +391,8 @@ def _():
     assert out["battery_discharge_current"] == "00000"
     assert out["pv_charging_power"] == "01200"
     assert out["load_percent"] == "030"
+    # Bus voltage placeholder removed — SMG-II has no register for it.
+    assert "bus_voltage" not in out
 
 
 @check("decode QPIRI maps register-encoded enums to readback enum names")
@@ -481,43 +483,82 @@ def _():
     assert frame.startswith(b"^P007PIRI")
 
 
-@check("decode GS projects raw fields onto the qpigs section keys")
+@check("decode GS returns multi-section qpigs+qpigs2 with no bus_voltage hardcode")
 def _():
     # 28-field GS reply with realistic-ish numbers. PI18 uses 0.1 V and 0.1 Hz
     # encoding for voltages/frequencies, raw amps for currents.
     body = (
         "2305,500,2300,500,1500,1500,030,2456,2456,0000,000,025,"
-        "100,45,40,40,1200,0000,2400,0000,0,2,0,1,1,2,1,0"
+        "100,45,40,40,1200,0500,2400,1500,0,2,0,1,1,2,1,0"
     )
     out = _pi18.decode("QPIGS", _build_pi18_response(body))
-    assert out["grid_voltage"] == "230.5"
-    assert out["grid_frequency"] == "50.0"
-    assert out["ac_output_voltage"] == "230.0"
-    assert out["battery_voltage"] == "245.60"  # raw 2456 / 10
-    assert out["battery_charging_current"] == "025"
-    assert out["battery_discharge_current"] == "00000"
-    assert out["pv_charging_power"] == "01200"
-    assert out["pv_input_voltage"] == "240.0"
-    assert out["load_percent"] == "030"
-    # Current synthesised from power/voltage: 1200 W / 240 V = 5.0 A
-    assert out["pv_input_current"] == "5.0"
+
+    qpigs = out["qpigs"]
+    assert qpigs["grid_voltage"] == "230.5"
+    assert qpigs["grid_frequency"] == "50.0"
+    assert qpigs["ac_output_voltage"] == "230.0"
+    assert qpigs["battery_voltage"] == "245.60"
+    assert qpigs["battery_charging_current"] == "025"
+    assert qpigs["battery_discharge_current"] == "00000"
+    assert qpigs["pv_charging_power"] == "01200"
+    assert qpigs["pv_input_voltage"] == "240.0"
+    assert qpigs["load_percent"] == "030"
+    # PI1 current synthesised from power/voltage: 1200 W / 240 V = 5.0 A
+    assert qpigs["pv_input_current"] == "5.0"
+    # bus_voltage placeholder removed — sensor falls through to Unavailable.
+    assert "bus_voltage" not in qpigs
+
+    qpigs2 = out["qpigs2"]
+    # PV2 voltage = 1500 / 10 = 150.0 V; PV2 power = 500 W; current = 500/150
+    assert qpigs2["pv_voltage"] == "150.0"
+    assert qpigs2["pv_current"].startswith("3.")  # ~3.33 A
 
 
-@check("decode PIRI maps PI18 priority codes onto the shared enum names")
+@check("decode PIRI swaps PI18 III/JJJ onto the right Axpert thresholds")
 def _():
+    # Reproduces the real 48 V LFP system in the user's screenshots:
+    # III=480 (re-charge → battery low) should land on
+    # ``low_battery_to_ac_bypass_voltage``; JJJ=530 (re-discharge → battery
+    # high) on ``high_battery_voltage_to_battery_mode``.
     body = (
-        "2300,152,2300,500,152,4000,4000,480,460,440,420,564,540,"
-        "2,30,060,1,1,2,9,0,0,0,1,1"
+        "2300,260,2300,500,260,6000,6000,480,480,530,420,565,565,"
+        "2,2,100,0,1,2,9,0,0,0,1,1"
     )
     out = _pi18.decode("QPIRI", _build_pi18_response(body))
     assert out["battery_type"] == "UserDefined"
-    assert out["ac_input_voltage_range"] == "UPS"
-    # PI18 R=1 (Solar-Battery-Utility) → SBU
-    assert out["output_source_priority"] == "SBU"
-    # PI18 S=2 (Only solar) → OnlySolar
-    assert out["charger_source_priority"] == "OnlySolar"
-    assert out["bulk_charging_voltage"] == "56.4"
-    assert out["max_charging_current"] == "060"
+    assert out["ac_input_voltage_range"] == "Appliance"  # Q=0
+    assert out["output_source_priority"] == "SBU"        # R=1
+    assert out["charger_source_priority"] == "OnlySolar" # S=2
+    assert out["bulk_charging_voltage"] == "56.5"
+    assert out["max_charging_current"] == "100"
+
+    # The swap: low (battery → AC) = III, high (battery → battery mode) = JJJ.
+    assert out["low_battery_to_ac_bypass_voltage"] == "48.0"
+    assert out["high_battery_voltage_to_battery_mode"] == "53.0"
+
+    # Reserved fields are not emitted for PI18 — sensors go Unavailable
+    # rather than report a misleading constant 0.
+    for key in ("reserved_uu", "reserved_v", "reserved_b", "reserved_ccc"):
+        assert key not in out
+
+
+@check("decode PIRI omits enum keys when the device returns blank or unknown codes")
+def _():
+    # Position 13 (battery_type), 16 (input_voltage_range), 17 (output_priority),
+    # 18 (charger_priority) are all blank — decoder must drop them so sensors
+    # land at Unavailable rather than displaying a raw numeric token.
+    body = (
+        "2300,260,2300,500,260,6000,6000,480,480,530,420,565,565,"
+        ",2,100,,,,9,0,0,0,1,1"
+    )
+    out = _pi18.decode("QPIRI", _build_pi18_response(body))
+    for key in (
+        "battery_type",
+        "ac_input_voltage_range",
+        "output_source_priority",
+        "charger_source_priority",
+    ):
+        assert key not in out, f"unexpected key {key} in {out}"
 
 
 @check("decode MOD maps PI18 mode codes 0..5 onto OperatingMode names")
