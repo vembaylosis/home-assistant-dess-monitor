@@ -128,7 +128,9 @@ def _decode_qpigs(regs: list[int]) -> dict[str, Any]:
         "output_apparent_power": f"{abs(_i16(R(213))):04d}",
         "output_active_power": f"{abs(_i16(R(213))):04d}",
         "load_percent": f"{R(225):03d}",
-        "bus_voltage": "400",  # SMG-II has no dedicated bus-voltage register
+        # SMG-II has no dedicated bus-voltage register — leave the key absent
+        # so the ``Direct Bus Voltage`` sensor reads as Unavailable rather
+        # than a misleading constant.
         "battery_voltage": f"{R(215) / 10.0:.2f}",
         "battery_charging_current": f"{battery_charging_current:03d}",
         "battery_capacity": "100",

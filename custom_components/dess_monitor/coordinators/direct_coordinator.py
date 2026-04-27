@@ -54,12 +54,14 @@ _SMG2_BINDING = ProtocolBinding(
     },
 )
 
-# PI18 packs PV1+PV2 into a single GS reply, so there's no separate QPIGS2
-# command to fan out. Same shape as SMG-II from the binding's POV.
+# PI18 packs PV1+PV2 into a single GS reply. Both sections point at the
+# same logical command — the coordinator deduplicates the round-trip and
+# the protocol decoder returns a multi-section dict (``qpigs`` + ``qpigs2``).
 _PI18_BINDING = ProtocolBinding(
     protocol_name="pi18",
     sections={
         "qpigs": "QPIGS",
+        "qpigs2": "QPIGS",
         "qpiri": "QPIRI",
     },
 )
@@ -162,9 +164,25 @@ class DirectCoordinator(DataUpdateCoordinator):
                 self.devices = await self.get_active_devices()
 
                 async def fetch_device_data(device: dict[str, Any]) -> tuple[str, dict[str, Any]]:
-                    sections: dict[str, Any] = {}
+                    # Group sections by command so a protocol like PI18 — where
+                    # one GS reply carries both qpigs and qpigs2 data — only
+                    # makes one cloud round-trip. When several sections share a
+                    # command we expect the decoder to return a *multi-section*
+                    # dict ``{section: {...}, section: {...}}``; for a single
+                    # section the decoder's flat dict IS that section.
+                    cmd_to_sections: dict[str, list[str]] = {}
                     for section, command in self._binding.sections.items():
-                        sections[section] = await self._service.query(device, command)
+                        cmd_to_sections.setdefault(command, []).append(section)
+
+                    sections: dict[str, Any] = {}
+                    for command, target_sections in cmd_to_sections.items():
+                        result = await self._service.query(device, command)
+                        if len(target_sections) == 1:
+                            sections[target_sections[0]] = result
+                            continue
+                        for section in target_sections:
+                            value = result.get(section) if isinstance(result, dict) else None
+                            sections[section] = value if isinstance(value, dict) else {}
                     return device['pn'], sections
 
                 results = await asyncio.gather(*map(fetch_device_data, self.devices))

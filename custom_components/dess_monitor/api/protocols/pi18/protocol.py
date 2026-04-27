@@ -113,17 +113,26 @@ _GS_FIELDS = (
 
 
 def _decode_gs(tokens: list[str]) -> dict[str, Any]:
-    """Project a ``^P005GS`` reply onto the Axpert-shaped ``qpigs`` dict."""
+    """Project a ``^P005GS`` reply onto the Axpert-shaped ``qpigs``+``qpigs2``
+    sections.
+
+    Returns a *multi-section* dict — :class:`DirectCoordinator` detects the
+    section keys and unpacks them, so a single GS round-trip populates both
+    PV1 (``qpigs``) and PV2 (``qpigs2``) sensor sets.
+    """
     # Pad to schema length so missing trailing fields don't IndexError.
     padded = list(tokens) + [""] * (len(_GS_FIELDS) - len(tokens))
     raw = dict(zip(_GS_FIELDS, padded))
 
     # Synthesise pv_input_current — PI18 doesn't expose it directly. Compute
     # from power/voltage; clamp to 0 when voltage is zero to avoid div/0.
-    pv_v_int = _safe_int(raw["pv_input_voltage"])
-    pv_p_int = _safe_int(raw["pv_charging_power"])
-    pv_v = pv_v_int / 10.0
-    pv_input_current = pv_p_int / pv_v if pv_v else 0.0
+    pv1_v = _safe_int(raw["pv_input_voltage"]) / 10.0
+    pv1_p = _safe_int(raw["pv_charging_power"])
+    pv1_a = pv1_p / pv1_v if pv1_v else 0.0
+
+    pv2_v = _safe_int(raw["_pv2_input_voltage"]) / 10.0
+    pv2_p = _safe_int(raw["_pv2_input_power"])
+    pv2_a = pv2_p / pv2_v if pv2_v else 0.0
 
     # Status bits aren't directly exposed in PI18; synthesise plausible
     # defaults the way the SMG-II adapter does, so any sensor reading them
@@ -132,7 +141,7 @@ def _decode_gs(tokens: list[str]) -> dict[str, Any]:
     status_b7_b0 = "00010001"  # inverter_on + line_fail unset by default
     status_b10_b8 = "010"
 
-    return {
+    qpigs = {
         "grid_voltage": f"{_safe_int(raw['grid_voltage']) / 10.0:.1f}",
         "grid_frequency": f"{_safe_int(raw['grid_frequency']) / 10.0:.1f}",
         "ac_output_voltage": f"{_safe_int(raw['ac_output_voltage']) / 10.0:.1f}",
@@ -140,22 +149,33 @@ def _decode_gs(tokens: list[str]) -> dict[str, Any]:
         "output_apparent_power": f"{_safe_int(raw['output_apparent_power']):04d}",
         "output_active_power": f"{_safe_int(raw['output_active_power']):04d}",
         "load_percent": f"{_safe_int(raw['load_percent']):03d}",
-        # PI18 has no dedicated bus-voltage register; mirror SMG-II default.
-        "bus_voltage": "400",
+        # PI18 has no dedicated bus-voltage register; leave the key absent so
+        # the ``Direct Bus Voltage`` sensor surfaces as Unavailable instead
+        # of a misleading hardcoded constant.
         "battery_voltage": f"{_safe_int(raw['battery_voltage']) / 10.0:.2f}",
         "battery_charging_current": f"{_safe_int(raw['battery_charging_current']):03d}",
         "battery_capacity": f"{_safe_int(raw['battery_capacity']):03d}",
         "inverter_heat_sink_temperature": f"{_safe_int(raw['inverter_heat_sink_temperature']):.1f}",
-        "pv_input_current": f"{pv_input_current:.1f}",
-        "pv_input_voltage": f"{pv_v:.1f}",
+        "pv_input_current": f"{pv1_a:.1f}",
+        "pv_input_voltage": f"{pv1_v:.1f}",
         "scc_battery_voltage": f"{_safe_int(raw['scc_battery_voltage']) / 10.0:.2f}",
         "battery_discharge_current": f"{_safe_int(raw['battery_discharge_current']):05d}",
         "device_status_bits_b7_b0": status_b7_b0,
         "battery_voltage_offset": "00",
         "eeprom_version": "00",
-        "pv_charging_power": f"{pv_p_int:05d}",
+        "pv_charging_power": f"{pv1_p:05d}",
         "device_status_bits_b10_b8": status_b10_b8,
     }
+
+    # ``qpigs2`` shape mirrors what AxpertProtocol decodes from QPIGS2:
+    # pv_current (A), pv_voltage (V), pv_daily_energy (Wh). PI18 doesn't
+    # expose daily energy in GS — leave the key absent.
+    qpigs2 = {
+        "pv_current": f"{pv2_a:.1f}",
+        "pv_voltage": f"{pv2_v:.1f}",
+    }
+
+    return {"qpigs": qpigs, "qpigs2": qpigs2}
 
 
 # ---------------------------------------------------------------------------
@@ -208,32 +228,36 @@ _PI18_CHARGER_PRIORITY: Mapping[int, str] = {
 }
 
 
+def _safe_enum(enum_cls, token: str) -> Any:
+    """Return ``enum_cls(token).name`` or ``None`` for unknown / blank tokens.
+
+    Returning ``None`` makes the HA enum sensor go *Unavailable* instead of
+    sticking the raw numeric token into the entity state, which would just
+    show up as an unrecognised option string.
+    """
+    cleaned = (token or "").strip()
+    if not cleaned:
+        return None
+    try:
+        return enum_cls(cleaned).name
+    except ValueError:
+        return None
+
+
 def _decode_piri(tokens: list[str]) -> dict[str, Any]:
     padded = list(tokens) + [""] * (len(_PIRI_FIELDS) - len(tokens))
-    raw = dict(zip(_PIRI_FIELDS, padded))
+    raw = {k: (v.strip() if isinstance(v, str) else v) for k, v in zip(_PIRI_FIELDS, padded)}
 
-    # PI18 battery type codes ("0"/"1"/"2") line up with Axpert's
-    # BatteryType enum directly — reuse the readback values.
-    try:
-        battery_type = BatteryType(raw["battery_type_code"]).name
-    except ValueError:
-        battery_type = raw["battery_type_code"]
+    battery_type = _safe_enum(BatteryType, raw["battery_type_code"])
+    ac_range = _safe_enum(ACInputVoltageRange, raw["input_voltage_range_code"])
 
-    try:
-        ac_range = ACInputVoltageRange(raw["input_voltage_range_code"]).name
-    except ValueError:
-        ac_range = raw["input_voltage_range_code"]
+    out_idx = _safe_int(raw["output_priority_code"], -1)
+    output_priority = _PI18_OUTPUT_PRIORITY.get(out_idx) if out_idx >= 0 else None
 
-    output_priority = _PI18_OUTPUT_PRIORITY.get(
-        _safe_int(raw["output_priority_code"], -1),
-        raw["output_priority_code"],
-    )
-    charger_priority = _PI18_CHARGER_PRIORITY.get(
-        _safe_int(raw["charger_priority_code"], -1),
-        raw["charger_priority_code"],
-    )
+    chg_idx = _safe_int(raw["charger_priority_code"], -1)
+    charger_priority = _PI18_CHARGER_PRIORITY.get(chg_idx) if chg_idx >= 0 else None
 
-    return {
+    result: dict[str, Any] = {
         "rated_grid_voltage": f"{_safe_int(raw['rated_grid_voltage']) / 10.0:.1f}",
         "rated_input_current": f"{_safe_int(raw['rated_input_current']) / 10.0:.1f}",
         "rated_ac_output_voltage": f"{_safe_int(raw['rated_ac_output_voltage']) / 10.0:.1f}",
@@ -242,30 +266,42 @@ def _decode_piri(tokens: list[str]) -> dict[str, Any]:
         "rated_output_apparent_power": f"{_safe_int(raw['rated_output_apparent_power']):04d}",
         "rated_output_active_power": f"{_safe_int(raw['rated_output_active_power']):04d}",
         "rated_battery_voltage": f"{_safe_int(raw['rated_battery_voltage']) / 10.0:.1f}",
-        "low_battery_to_ac_bypass_voltage": f"{_safe_int(raw['battery_redischarge_voltage']) / 10.0:.1f}",
+        # PI18 III = "battery re-charge (utility kicks in to charge)" → battery
+        # is *low* → maps to Axpert's ``low_battery_to_ac_bypass_voltage``.
+        # PI18 JJJ = "battery re-discharge (back to battery mode)" → battery
+        # is *high* → maps to ``high_battery_voltage_to_battery_mode``.
+        "low_battery_to_ac_bypass_voltage": f"{_safe_int(raw['battery_recharge_voltage']) / 10.0:.1f}",
+        "high_battery_voltage_to_battery_mode": f"{_safe_int(raw['battery_redischarge_voltage']) / 10.0:.1f}",
         "shut_down_battery_voltage": f"{_safe_int(raw['battery_under_voltage']) / 10.0:.1f}",
         "bulk_charging_voltage": f"{_safe_int(raw['battery_bulk_voltage']) / 10.0:.1f}",
         "float_charging_voltage": f"{_safe_int(raw['battery_float_voltage']) / 10.0:.1f}",
-        "battery_type": battery_type,
         "max_utility_charging_current": f"{_safe_int(raw['max_ac_charging_current']):02d}",
         "max_charging_current": f"{_safe_int(raw['max_charging_current']):03d}",
-        "ac_input_voltage_range": ac_range,
-        "output_source_priority": output_priority,
-        "charger_source_priority": charger_priority,
         "parallel_max_number": raw["parallel_max"] or "0",
-        "reserved_uu": "00",
-        "reserved_v": "0",
         # PI18 doesn't have an explicit parallel master/slave readout in PIRI;
         # output_model_setting is the closest signal but its codes (0..4)
         # don't map cleanly to ParallelMode. Punt with a constant.
         "parallel_mode": "Standalone",
-        "high_battery_voltage_to_battery_mode": f"{_safe_int(raw['battery_recharge_voltage']) / 10.0:.1f}",
-        "solar_work_condition_in_parallel": "0",
-        "solar_max_charging_power_auto_adjust": "1_",
         "rated_battery_capacity": "200",
-        "reserved_b": "0",
-        "reserved_ccc": "0",
     }
+
+    # Enum-typed fields: include the key only when we actually know the
+    # answer. Missing keys make the HA sensor go Unavailable, which is the
+    # right signal for "device didn't tell us".
+    if battery_type is not None:
+        result["battery_type"] = battery_type
+    if ac_range is not None:
+        result["ac_input_voltage_range"] = ac_range
+    if output_priority is not None:
+        result["output_source_priority"] = output_priority
+    if charger_priority is not None:
+        result["charger_source_priority"] = charger_priority
+
+    # ``reserved_*`` keys exist in the Axpert QPIRI schema (positions filled
+    # with raw device values whose meaning isn't documented). PI18 has no
+    # equivalents — leaving them absent means the auto-generated diagnostic
+    # sensors stay Unavailable instead of showing a misleading constant 0.
+    return result
 
 
 # ---------------------------------------------------------------------------
