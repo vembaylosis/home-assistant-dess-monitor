@@ -162,16 +162,23 @@ async def set_inverter_output_priority(
 ) -> Optional[Dict[str, Any]]:
     match device_data['devcode']:
         case 2341:
-            map_param_value = {'Utility': '0', 'Solar': '1', 'SBU': '2'}
+            map_param_value = {'Utility': '0', 'Solar': '1', 'SBU': '2', 'SUB': '3'}
             param_id = 'los_output_source_priority'
         case 2428:
-            map_param_value = {'Utility': '12336', 'Solar': '12337', 'SBU': '12338'}
+            map_param_value = {
+                'Utility': '12336',
+                'Solar': '12337',
+                'SBU': '12338',
+                'SUB': '12339',
+            }
             param_id = 'bse_output_source_priority'
         case 2376:
-            map_param_value = {'Utility': '0', 'Solar': '1', 'SBU': '2'}
+            map_param_value = {'Utility': '0', 'Solar': '1', 'SBU': '2', 'SUB': '3'}
             param_id = 'bse_eybond_ctrl_49'
         case _:
             return None
+    if value not in map_param_value:
+        return None
     return await client.control.set_param(
         DeviceIdentity.from_dict(device_data),
         param_id,
@@ -192,6 +199,8 @@ async def get_inverter_output_priority(
                 'Solar': 'Solar',
                 'SBU': 'SBU',
                 'SBU first': 'SBU',
+                'SUB': 'SUB',
+                'SUB first': 'SUB',
                 None: None,
             }
             param_id = 'los_output_source_priority'
@@ -203,6 +212,8 @@ async def get_inverter_output_priority(
                 'Solar': 'Solar',
                 'SBU': 'SBU',
                 'SBU first': 'SBU',
+                'SUB': 'SUB',
+                'SUB first': 'SUB',
                 None: None,
             }
             param_id = 'bse_output_source_priority'

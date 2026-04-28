@@ -48,7 +48,7 @@ _OUTPUT_PRIORITY_MAP: Mapping[str, str] = {
     # Anenji 11kw (devcode 6544) ctrl_fields publish three-letter codes
     # without an explanatory mapping; pass them through as-is so the sensor
     # never goes Unknown when the device picks one we haven't tagged.
-    "sub": "SUB",
+    "sub": "SUB", "sub first": "SUB",
     "suf": "SUF",
     "off": "OFF",
 }
