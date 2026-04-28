@@ -12,6 +12,16 @@ DEFAULT_DIRECT_UPDATE_INTERVAL = 10
 # max charging current, etc.) — these change rarely outside HA, so default
 # refresh is 5 min to keep the cloud quiet and avoid blocking the event loop.
 DEFAULT_DYNAMIC_SETTINGS_INTERVAL = 300
+# Catalog-style call ``queryDeviceParsEs`` returns mostly static configuration
+# values (output priority, charging current, voltage thresholds…). Polling it
+# at the live-data cadence was enough to trip the cloud's per-action rate
+# limit (err=3) during peak hours; once an hour is plenty.
+DEFAULT_PARS_REFRESH_INTERVAL = 3600
+# Cap on how long the coordinator may serve a previous tick's live values
+# (``last_data`` / ``energy_flow``) when the current tick's fetch returned
+# empty. Keeps sensors steady through brief cloud blips without showing
+# yesterday's power as current after a real outage.
+STALE_LIVE_DATA_MAX_SECONDS = 15 * 60
 
 MIN_MAIN_UPDATE_INTERVAL = 30
 MAX_MAIN_UPDATE_INTERVAL = 900
