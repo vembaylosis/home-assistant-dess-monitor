@@ -19,12 +19,17 @@ from .const import (  # pylint:disable=unused-import
     CONF_ENABLE_WEBSOCKET,
     CONF_BATTERY_VIRTUAL_ENABLED,
     CONF_ENABLE_LAST_AT_SENSORS,
+    CONF_DIRECT_PROTOCOL,
     DEFAULT_MAIN_UPDATE_INTERVAL,
     DEFAULT_DIRECT_UPDATE_INTERVAL,
     DEFAULT_DYNAMIC_SETTINGS_INTERVAL,
     DEFAULT_ENABLE_WEBSOCKET,
     DEFAULT_BATTERY_VIRTUAL_ENABLED,
     DEFAULT_ENABLE_LAST_AT_SENSORS,
+    DEFAULT_DIRECT_PROTOCOL,
+    DIRECT_PROTOCOL_AXPERT,
+    DIRECT_PROTOCOL_PI18,
+    DIRECT_PROTOCOL_SMG2,
     MIN_MAIN_UPDATE_INTERVAL,
     MAX_MAIN_UPDATE_INTERVAL,
     MIN_DIRECT_UPDATE_INTERVAL,
@@ -54,6 +59,19 @@ DATA_SCHEMA = vol.Schema({
     vol.Optional("dynamic_settings", default=False): bool,
     vol.Optional("raw_sensors", default=False): bool,
     vol.Optional("direct_request_protocol", default=False): bool,
+    vol.Optional(CONF_DIRECT_PROTOCOL, default=DEFAULT_DIRECT_PROTOCOL): selector({
+        "select": {
+            "options": [
+                {"value": DIRECT_PROTOCOL_AXPERT,
+                 "label": "Axpert / PI30 (Voltronic ASCII)"},
+                {"value": DIRECT_PROTOCOL_SMG2,
+                 "label": "SMG-II (Modbus RTU)"},
+                {"value": DIRECT_PROTOCOL_PI18,
+                 "label": "InfiniSolar-V / PI18"},
+            ],
+            "mode": "dropdown",
+        }
+    }),
 })
 
 
@@ -123,6 +141,7 @@ class ConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
         self._devices = []
         self._dynamic_settings = False
         self._direct_request_protocol = False
+        self._direct_protocol = DEFAULT_DIRECT_PROTOCOL
         self._raw_sensors = False
         self._username = None
         self._password_hash = None
@@ -145,6 +164,7 @@ class ConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
                 self._password_hash = info['password_hash']
                 self._dynamic_settings = user_input['dynamic_settings']
                 self._direct_request_protocol = user_input['direct_request_protocol']
+                self._direct_protocol = user_input.get(CONF_DIRECT_PROTOCOL, DEFAULT_DIRECT_PROTOCOL)
                 self._raw_sensors = user_input['raw_sensors']
                 active_devices = [device for device in info['devices'] if device['status'] != 1]
                 self._devices = active_devices
@@ -182,6 +202,7 @@ class ConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
                     'password_hash': self._password_hash,
                     'dynamic_settings': self._dynamic_settings,
                     'direct_request_protocol': self._direct_request_protocol,
+                    CONF_DIRECT_PROTOCOL: self._direct_protocol,
                     'devices': devices,
                     'raw_sensors': self._raw_sensors,
                 })
@@ -254,6 +275,24 @@ class OptionsFlow(config_entries.OptionsFlow):
                              default=self._config_entry.options.get('raw_sensors', False)): bool,
                 vol.Optional("direct_request_protocol",
                              default=self._config_entry.options.get('direct_request_protocol', False)): bool,
+                vol.Optional(
+                    CONF_DIRECT_PROTOCOL,
+                    default=self._config_entry.options.get(
+                        CONF_DIRECT_PROTOCOL, DEFAULT_DIRECT_PROTOCOL
+                    ),
+                ): selector({
+                    "select": {
+                        "options": [
+                            {"value": DIRECT_PROTOCOL_AXPERT,
+                             "label": "Axpert / PI30 (Voltronic ASCII)"},
+                            {"value": DIRECT_PROTOCOL_SMG2,
+                             "label": "SMG-II (Modbus RTU)"},
+                            {"value": DIRECT_PROTOCOL_PI18,
+                             "label": "InfiniSolar-V / PI18"},
+                        ],
+                        "mode": "dropdown",
+                    }
+                }),
                 vol.Optional(
                     CONF_MAIN_UPDATE_INTERVAL,
                     default=self._config_entry.options.get(

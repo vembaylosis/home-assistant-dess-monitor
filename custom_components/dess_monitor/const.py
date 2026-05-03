@@ -6,6 +6,21 @@ CONF_MAIN_UPDATE_INTERVAL = "main_update_interval"
 CONF_DIRECT_UPDATE_INTERVAL = "direct_update_interval"
 CONF_DYNAMIC_SETTINGS_INTERVAL = "dynamic_settings_interval"
 
+# Which inverter dialect drives the direct-command coordinator. Both
+# protocols share the cloud transport — the relay just ships opaque bytes
+# to the device's serial port and forwards the reply back. Choosing the
+# right protocol matters because the byte format on the wire is different.
+CONF_DIRECT_PROTOCOL = "direct_protocol"
+DIRECT_PROTOCOL_AXPERT = "axpert"
+DIRECT_PROTOCOL_SMG2 = "smg2_modbus"
+DIRECT_PROTOCOL_PI18 = "pi18"
+DEFAULT_DIRECT_PROTOCOL = DIRECT_PROTOCOL_AXPERT
+DIRECT_PROTOCOL_OPTIONS = (
+    DIRECT_PROTOCOL_AXPERT,
+    DIRECT_PROTOCOL_SMG2,
+    DIRECT_PROTOCOL_PI18,
+)
+
 DEFAULT_MAIN_UPDATE_INTERVAL = 60
 DEFAULT_DIRECT_UPDATE_INTERVAL = 10
 # Per-entity polling for dynamic select/number settings (output priority,
