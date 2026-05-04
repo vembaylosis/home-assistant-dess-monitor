@@ -1,129 +1,198 @@
+from __future__ import annotations
+
+import asyncio
 import logging
 from datetime import timedelta
+from typing import Any
 
 import async_timeout
 from homeassistant.core import HomeAssistant
 from homeassistant.helpers.update_coordinator import (
     DataUpdateCoordinator,
+    UpdateFailed,
 )
 
-from custom_components.dess_monitor.api import *
-from custom_components.dess_monitor.api.helpers import *
+from custom_components.dess_monitor.api.direct_service import DirectService
+from custom_components.dess_monitor.api.protocols import Pi18Protocol, Smg2ModbusProtocol
+from custom_components.dess_monitor.api.protocols.base import ProtocolBinding
+from custom_components.dess_monitor.api.transports import CloudHexTransport
+from custom_components.dess_monitor.const import (
+    CONF_DIRECT_PROTOCOL,
+    CONF_DIRECT_UPDATE_INTERVAL,
+    DEFAULT_DIRECT_PROTOCOL,
+    DEFAULT_DIRECT_UPDATE_INTERVAL,
+    DIRECT_PROTOCOL_PI18,
+    DIRECT_PROTOCOL_SMG2,
+    MIN_DIRECT_UPDATE_INTERVAL,
+    MAX_DIRECT_UPDATE_INTERVAL,
+)
+from custom_components.dess_monitor.coordinators.coordinator import _clamp
+from custom_components.dess_monitor.device_cache import DeviceCache
+from custom_components.dess_monitor.sdk import AuthError, DessmonitorClient, TransportError
 
 _LOGGER = logging.getLogger(__name__)
 
 
-class DirectCoordinator(DataUpdateCoordinator):
-    """My custom coordinator."""
-    devices = []
-    auth = None
-    auth_issued_at = None
+# Poll plans per protocol. Sensors read by *section name* (``qpigs``/``qpiri``/
+# ``qpigs2``), insulated from which underlying command produced the data.
+_AXPERT_BINDING = ProtocolBinding(
+    protocol_name="axpert",
+    sections={
+        "qpigs": "QPIGS",
+        "qpigs2": "QPIGS2",
+        "qpiri": "QPIRI",
+    },
+)
 
-    def __init__(self, hass: HomeAssistant, config_entry):
-        """Initialize my coordinator."""
+# SMG-II Modbus has no QPIGS2 register block; skipping it keeps the polling
+# loop quick rather than wasting a transaction on an "unsupported" reply.
+_SMG2_BINDING = ProtocolBinding(
+    protocol_name="smg2_modbus",
+    sections={
+        "qpigs": "QPIGS",
+        "qpiri": "QPIRI",
+    },
+)
+
+# PI18 packs PV1+PV2 into a single GS reply. Both sections point at the
+# same logical command — the coordinator deduplicates the round-trip and
+# the protocol decoder returns a multi-section dict (``qpigs`` + ``qpigs2``).
+_PI18_BINDING = ProtocolBinding(
+    protocol_name="pi18",
+    sections={
+        "qpigs": "QPIGS",
+        "qpigs2": "QPIGS",
+        "qpiri": "QPIRI",
+    },
+)
+
+
+class DirectCoordinator(DataUpdateCoordinator):
+    """Polls inverter direct-protocol commands described by a ProtocolBinding."""
+    devices: list[dict[str, Any]] = []
+
+    def __init__(
+        self,
+        hass: HomeAssistant,
+        config_entry: Any,
+        client: DessmonitorClient,
+        device_cache: DeviceCache,
+        *,
+        service: DirectService | None = None,
+        binding: ProtocolBinding | None = None,
+    ) -> None:
+        interval_seconds = _clamp(
+            config_entry.options.get(CONF_DIRECT_UPDATE_INTERVAL, DEFAULT_DIRECT_UPDATE_INTERVAL),
+            MIN_DIRECT_UPDATE_INTERVAL,
+            MAX_DIRECT_UPDATE_INTERVAL,
+        )
         super().__init__(
             hass,
             _LOGGER,
-            # Name of the data. For logging purposes.
             name="Direct request sensor",
             config_entry=config_entry,
-            # Polling interval. Will only be polled if there are subscribers.
-            update_interval=timedelta(seconds=10),
-            # Set always_update to `False` if the data returned from the
-            # api can be compared via `__eq__` to avoid duplicate updates
-            # being dispatched to listeners
-            always_update=False
-
+            update_interval=timedelta(seconds=interval_seconds),
+            always_update=False,
         )
-        # self.my_api = my_api
-        # self._device: MyDevice | None = None
+        self._update_timeout = max(interval_seconds, 30)
+        self._client = client
+        self._device_cache = device_cache
 
-    async def _async_setup(self):
-        """Set up the coordinator
+        protocol_name = config_entry.options.get(
+            CONF_DIRECT_PROTOCOL, DEFAULT_DIRECT_PROTOCOL
+        )
 
-        This is the place to set up your coordinator,
-        or to load data, that only needs to be loaded once.
+        # Always cloud transport; only the codec on top differs. The DESS
+        # relay forwards opaque bytes to the inverter's serial line, so
+        # whether we ship Voltronic ASCII or a Modbus RTU frame is purely
+        # a protocol-side concern.
+        if service is None:
+            transport = CloudHexTransport(client)
+            if protocol_name == DIRECT_PROTOCOL_SMG2:
+                service = DirectService(transport, protocol=Smg2ModbusProtocol())
+                default_binding = _SMG2_BINDING
+            elif protocol_name == DIRECT_PROTOCOL_PI18:
+                service = DirectService(transport, protocol=Pi18Protocol())
+                default_binding = _PI18_BINDING
+            else:
+                service = DirectService(transport)
+                default_binding = _AXPERT_BINDING
+        else:
+            if protocol_name == DIRECT_PROTOCOL_SMG2:
+                default_binding = _SMG2_BINDING
+            elif protocol_name == DIRECT_PROTOCOL_PI18:
+                default_binding = _PI18_BINDING
+            else:
+                default_binding = _AXPERT_BINDING
 
-        This method will be called automatically during
-        coordinator.async_config_entry_first_refresh.
-        """
-        await self.create_auth()
+        self._service = service
+        self._binding = binding or default_binding
+        self._protocol_name = protocol_name
 
-        self.devices = await self.get_active_devices()
-        print('direct coordinator setup devices count: ', len(self.devices))
+    @property
+    def client(self) -> DessmonitorClient:
+        return self._client
 
-        # token = self.auth['token']
-        # secret = self.auth['secret']
-        # query_device_ctrl_fields = [get_device_ctrl_fields(token, secret, device) for device in self.devices]
-        # query_device_ctrl_fields_results = await asyncio.gather(*query_device_ctrl_fields)
-        # for i, device_field_data in enumerate(query_device_ctrl_fields_results):
-        #     for k, field_data in device_field_data['field']:
-        #         async_add_entities(InverterDynamicSettingSelect())
-        # await self.async_refresh()
-        # await self._async_update_data()
+    async def _async_setup(self) -> None:
+        if self.config_entry.options.get('direct_request_protocol', False) is not True:
+            return
+        async with async_timeout.timeout(30):
+            await self._client.session.get_auth()
+            self.devices = await self.get_active_devices()
+            _LOGGER.debug("direct coordinator setup devices count: %s", len(self.devices))
 
-    async def create_auth(self):
-        username = self.config_entry.data["username"]
-        password_hash = self.config_entry.data["password_hash"]
-        auth = await auth_user(username, password_hash)
-        auth_issued_at = int(datetime.now().timestamp())
-
-        self.auth = auth
-        self.auth_issued_at = auth_issued_at
-
-    async def check_auth(self):
-        now = int(datetime.now().timestamp())
-        # print(self.auth)
-        if self.auth_issued_at is None or (now - (self.auth_issued_at + (self.auth['expire'])) <= 3600):
-            await self.create_auth()
-
-    async def get_active_devices(self):
-        devices = await get_devices(self.auth['token'], self.auth['secret'])
+    async def get_active_devices(self) -> list[dict[str, Any]]:
+        devices = await self._device_cache.async_get_devices(
+            lambda: self._client.devices.list()
+        )
         active_devices = [device for device in devices if device['status'] != 1]
         devices_filter = self.config_entry.options.get("devices", [])
-
         if devices_filter:
-            selected_devices = [
+            return [
                 device for device in active_devices
                 if str(device.get("pn")) in devices_filter
             ]
-        else:
-            selected_devices = active_devices
-        return selected_devices
+        return active_devices
 
-    async def _async_update_data(self):
+    async def _async_update_data(self) -> dict[str, dict[str, Any]] | None:
         try:
-            # Note: asyncio.TimeoutError and aiohttp.ClientError are already
-            # handled by the data update coordinator.
-            async with async_timeout.timeout(30):
+            async with async_timeout.timeout(self._update_timeout):
                 if self.config_entry.options.get('direct_request_protocol', False) is not True:
                     return None
-                print('direct coordinator update data devices')
+                _LOGGER.debug("direct coordinator update data devices")
 
-                await self.check_auth()
                 self.devices = await self.get_active_devices()
 
-                token = self.auth['token']
-                secret = self.auth['secret']
+                async def fetch_device_data(device: dict[str, Any]) -> tuple[str, dict[str, Any]]:
+                    # Group sections by command so a protocol like PI18 — where
+                    # one GS reply carries both qpigs and qpigs2 data — only
+                    # makes one cloud round-trip. When several sections share a
+                    # command we expect the decoder to return a *multi-section*
+                    # dict ``{section: {...}, section: {...}}``; for a single
+                    # section the decoder's flat dict IS that section.
+                    cmd_to_sections: dict[str, list[str]] = {}
+                    for section, command in self._binding.sections.items():
+                        cmd_to_sections.setdefault(command, []).append(section)
 
-                async def fetch_device_data(device):
-                    qpigs = await get_direct_data(token, secret, device, 'QPIGS')
-                    qpigs2 = await get_direct_data(token, secret, device, 'QPIGS2')
-                    qpiri = await get_direct_data(token, secret, device, 'QPIRI')
-                    return device['pn'], {
-                        'qpigs': qpigs,
-                        'qpigs2': qpigs2,
-                        'qpiri': qpiri
-                    }
+                    sections: dict[str, Any] = {}
+                    for command, target_sections in cmd_to_sections.items():
+                        result = await self._service.query(device, command)
+                        if len(target_sections) == 1:
+                            sections[target_sections[0]] = result
+                            continue
+                        for section in target_sections:
+                            value = result.get(section) if isinstance(result, dict) else None
+                            sections[section] = value if isinstance(value, dict) else {}
+                    return device['pn'], sections
 
-                data_map = dict(await asyncio.gather(*map(fetch_device_data, self.devices)))
-                return data_map
-                # return
-        except TimeoutError as err:
-            # Raising ConfigEntryAuthFailed will cancel future updates
-            # and start a config flow with SOURCE_REAUTH (async_step_reauth)
-            raise err
-        except AuthInvalidateError:
-            await self.create_auth()
-            # raise ConfigEntryAuthFailed from err
-        # except ApiError as err:
+                results = await asyncio.gather(*map(fetch_device_data, self.devices))
+                return dict(results)
+        except TimeoutError:
+            raise
+        except AuthError as err:
+            await self._client.session.invalidate()
+            raise UpdateFailed("auth token invalidated, will re-issue next tick") from err
+        except TransportError as err:
+            # Wrap as UpdateFailed so HA logs a single WARNING line instead
+            # of the full aiohttp + SDK traceback every time the cloud blips.
+            raise UpdateFailed(f"DESS cloud transient: {err}") from err

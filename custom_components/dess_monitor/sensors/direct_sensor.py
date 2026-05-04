@@ -6,8 +6,13 @@ from homeassistant.helpers.device_registry import DeviceInfo
 from homeassistant.helpers.update_coordinator import CoordinatorEntity
 
 from custom_components.dess_monitor import DirectCoordinator
-from custom_components.dess_monitor.api.commands.direct_commands import ParallelMode, ChargerSourcePriority, \
-    OutputSourcePriority, ACInputVoltageRange, BatteryType
+from custom_components.dess_monitor.api.protocols.enums import (
+    ACInputVoltageRange,
+    BatteryType,
+    ChargerSourcePriority,
+    OutputSourcePriority,
+    ParallelMode,
+)
 from custom_components.dess_monitor.const import DOMAIN
 from custom_components.dess_monitor.hub import InverterDevice
 
@@ -18,6 +23,10 @@ class DirectSensorBase(CoordinatorEntity, SensorEntity):
         """Initialize the sensor."""
         super().__init__(coordinator)
         self._inverter_device = inverter_device
+
+    async def async_added_to_hass(self) -> None:
+        await super().async_added_to_hass()
+        self._handle_coordinator_update()
 
     @property
     def device_info(self) -> DeviceInfo:

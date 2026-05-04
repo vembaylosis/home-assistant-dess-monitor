@@ -11,6 +11,8 @@ from custom_components.dess_monitor.coordinators.coordinator import MainCoordina
 from custom_components.dess_monitor.hub import InverterDevice
 from custom_components.dess_monitor.sensors.init_sensors import SensorBase
 
+ENERGY_GAP_INTERVAL_MULTIPLIER = 5
+
 
 class MyEnergySensor(RestoreSensor, SensorBase):
     _attr_device_class = SensorDeviceClass.ENERGY
@@ -28,10 +30,26 @@ class MyEnergySensor(RestoreSensor, SensorBase):
         self._is_restored_value = False
 
     async def async_added_to_hass(self) -> None:
-        if (last_sensor_data := await self.async_get_last_extra_data()) is not None:
-            self._attr_native_value = last_sensor_data.as_dict().get('native_value', 0)
-        else:
-            self._attr_native_value = 0
+        candidates: list[float] = []
+
+        last_extra = await self.async_get_last_extra_data()
+        if last_extra is not None:
+            try:
+                raw_extra = last_extra.as_dict().get('native_value')
+                if raw_extra is not None:
+                    candidates.append(float(raw_extra))
+            except (TypeError, ValueError):
+                pass
+
+        last_state = await self.async_get_last_state()
+        if last_state is not None and last_state.state not in (None, "", "unknown", "unavailable"):
+            try:
+                candidates.append(float(last_state.state))
+            except (TypeError, ValueError):
+                pass
+
+        # Use the highest known value to keep TOTAL_INCREASING monotonic across restarts.
+        self._attr_native_value = max(candidates) if candidates else 0
         self._is_restored_value = True
         await super().async_added_to_hass()
 
@@ -40,13 +58,22 @@ class MyEnergySensor(RestoreSensor, SensorBase):
         return self._inverter_device.online and self._inverter_device.hub.online and self._is_restored_value
 
     def update_energy_value(self, current_value: float):
+        if current_value is None:
+            return
         now = datetime.now()
         elapsed_seconds = int(now.timestamp() - self._prev_value_timestamp.timestamp())
-        if self._prev_value is not None:
+        max_gap = self._max_integration_gap_seconds()
+        if self._prev_value is not None and elapsed_seconds <= max_gap:
             self._attr_native_value += (elapsed_seconds / 3600) * (self._prev_value + current_value) / 2
         self._prev_value = current_value
         self._prev_value_timestamp = now
         self.async_write_ha_state()
+
+    def _max_integration_gap_seconds(self) -> float:
+        update_interval = getattr(self.coordinator, "update_interval", None)
+        if update_interval is None:
+            return float("inf")
+        return update_interval.total_seconds() * ENERGY_GAP_INTERVAL_MULTIPLIER
 
 
 class FunctionBasedEnergySensor(MyEnergySensor):
@@ -60,8 +87,12 @@ class FunctionBasedEnergySensor(MyEnergySensor):
     @callback
     def _handle_coordinator_update(self) -> None:
         data = self.data
-        device_data = self._inverter_device.device_data
-        current_value = self._resolve_function(data, device_data)
+        if data is None:
+            return
+        try:
+            current_value = self._resolve_function(data, self._inverter_device)
+        except Exception:
+            return
         self.update_energy_value(current_value)
 
 

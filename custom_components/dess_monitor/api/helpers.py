@@ -1,8 +1,7 @@
 from typing import Any, Dict, Optional
 
-from custom_components.dess_monitor.api import set_ctrl_device_param, get_device_ctrl_value, send_device_direct_command
-from custom_components.dess_monitor.api.commands.direct_commands import decode_direct_response, get_command_hex
 from custom_components.dess_monitor.api.resolvers.data_keys_map import SENSOR_KEYS_MAP
+from custom_components.dess_monitor.sdk import DessmonitorClient, DeviceIdentity
 
 
 def resolve_param(data, where, case_insensitive=False, find_all=False, default=None, root_keys=None):
@@ -90,10 +89,28 @@ def resolve_param(data, where, case_insensitive=False, find_all=False, default=N
         return found[0] if found else default
 
 
-def safe_float(val: Optional[str], default: float = 0.0) -> float:
+def safe_float(val: Any, default: Optional[float] = 0.0) -> Optional[float]:
+    """Coerce to float, returning ``default`` for None / empty / unparseable input."""
+    if val is None:
+        return default
+    if isinstance(val, str):
+        val = val.strip()
+        if val == "" or val == "-" or val == "--" or val == "----" or val.lower() in ("n/a", "na", "none", "null", "nan"):
+            return default
     try:
-        return float(val) if val is not None else default
+        return float(val)
     except (ValueError, TypeError):
+        return default
+
+
+def safe_int(val: Any, default: Optional[int] = None) -> Optional[int]:
+    """Coerce to int, returning ``default`` for unparseable input."""
+    f = safe_float(val, default=None)
+    if f is None:
+        return default
+    try:
+        return int(f)
+    except (ValueError, TypeError, OverflowError):
         return default
 
 
@@ -137,66 +154,74 @@ def get_sensor_value_simple_entry(
     return None
 
 
-async def set_inverter_output_priority(token: str, secret: str, device_data, value: str):
+async def set_inverter_output_priority(
+    client: DessmonitorClient,
+    device_data: Dict[str, Any],
+    value: str,
+) -> Optional[Dict[str, Any]]:
     match device_data['devcode']:
         case 2341:
-            map_param_value = {
-                'Utility': '0',
-                'Solar': '1',
-                'SBU': '2'
-            }
-            param_value = map_param_value[value]
-
+            map_param_value = {'Utility': '0', 'Solar': '1', 'SBU': '2', 'SUB': '3'}
             param_id = 'los_output_source_priority'
         case 2428:
             map_param_value = {
                 'Utility': '12336',
                 'Solar': '12337',
-                'SBU': '12338'
+                'SBU': '12338',
+                'SUB': '12339',
             }
-            param_value = map_param_value[value]
-
             param_id = 'bse_output_source_priority'
         case 2376:
-            map_param_value = {
-                'Utility': '0',
-                'Solar': '1',
-                'SBU': '2'
-            }
-            param_value = map_param_value[value]
-
+            map_param_value = {'Utility': '0', 'Solar': '1', 'SBU': '2', 'SUB': '3'}
             param_id = 'bse_eybond_ctrl_49'
-
         case _:
-            return
-    return await set_ctrl_device_param(token, secret, device_data, param_id, param_value)
-
-
-async def get_inverter_output_priority(token: str, secret: str, ctrl_fields, device_data):
-    map_param_value = {
-        'UTILITY FIRST': 'Utility',
-        'UTILITY': 'Utility',
-        'SOLAR FIRST': 'Solar',
-        'SOLAR': 'Solar',
-        'SOL': 'Solar',
-        'SBU': 'SBU',
-        'SBU FIRST': 'SBU',
-        'UTI': 'Utility',
-        'SUB': 'SUB',
-        None: None
-    }
-
-    entry = get_sensor_value_simple_entry('output_priority_option', ctrl_fields, device_data)
-
-    if entry is None:
+            return None
+    if value not in map_param_value:
         return None
-    param_id, _, _ = entry
-    result = await get_device_ctrl_value(token, secret, device_data, param_id)
-    if result['val'].upper() not in map_param_value:
+    return await client.control.set_param(
+        DeviceIdentity.from_dict(device_data),
+        param_id,
+        map_param_value[value],
+    )
+
+
+async def get_inverter_output_priority(
+    client: DessmonitorClient,
+    device_data: Dict[str, Any],
+) -> Optional[str]:
+    match device_data['devcode']:
+        case 2341:
+            map_param_value = {
+                'Utility first': 'Utility',
+                'Utility': 'Utility',
+                'Solar first': 'Solar',
+                'Solar': 'Solar',
+                'SBU': 'SBU',
+                'SBU first': 'SBU',
+                'SUB': 'SUB',
+                'SUB first': 'SUB',
+                None: None,
+            }
+            param_id = 'los_output_source_priority'
+        case 2428:
+            map_param_value = {
+                'Utility first': 'Utility',
+                'Utility': 'Utility',
+                'Solar first': 'Solar',
+                'Solar': 'Solar',
+                'SBU': 'SBU',
+                'SBU first': 'SBU',
+                'SUB': 'SUB',
+                'SUB first': 'SUB',
+                None: None,
+            }
+            param_id = 'bse_output_source_priority'
+        case _:
+            return None
+    result = await client.control.get_value(DeviceIdentity.from_dict(device_data), param_id)
+    val = result.get('val') if isinstance(result, dict) else None
+    if val not in map_param_value:
         return None
-    return map_param_value[result['val'].upper()]
+    return map_param_value[val]
 
 
-async def get_direct_data(token: str, secret: str, device_data, cmd_name):
-    result = await send_device_direct_command(token, secret, device_data, get_command_hex(cmd_name))
-    return decode_direct_response(cmd_name, result['dat'])

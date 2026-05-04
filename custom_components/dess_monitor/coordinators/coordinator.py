@@ -1,123 +1,207 @@
+from __future__ import annotations
+
+import asyncio
 import logging
 from datetime import timedelta
+from time import monotonic
+from typing import Any, Awaitable, Coroutine, TypeVar
 
 import async_timeout
 from homeassistant.core import HomeAssistant
 from homeassistant.helpers.update_coordinator import (
     DataUpdateCoordinator,
+    UpdateFailed,
 )
 
-from custom_components.dess_monitor.api import *
-from custom_components.dess_monitor.api.helpers import *
+from custom_components.dess_monitor.api.helpers import get_inverter_output_priority
+from custom_components.dess_monitor.const import (
+    CONF_MAIN_UPDATE_INTERVAL,
+    DEFAULT_MAIN_UPDATE_INTERVAL,
+    DEFAULT_PARS_REFRESH_INTERVAL,
+    MIN_MAIN_UPDATE_INTERVAL,
+    MAX_MAIN_UPDATE_INTERVAL,
+    STALE_LIVE_DATA_MAX_SECONDS,
+)
+from custom_components.dess_monitor.device_cache import DeviceCache
+from custom_components.dess_monitor.sdk import (
+    ApiError,
+    AuthError,
+    DessmonitorClient,
+    DeviceIdentity,
+    TransportError,
+)
 
 _LOGGER = logging.getLogger(__name__)
 
+T = TypeVar("T")
 
-async def safe_call(coro, default=None):
+
+async def safe_call(coro: Coroutine[Any, Any, T] | Awaitable[T], default: T | None = None) -> T | None:
     try:
         return await coro
-    except Exception as e:
-        print(f"Error during {coro}: {e}")
+    except TransportError as err:
+        # Cloud timeout / network blip — expected with this provider. Log a
+        # one-line WARNING so HA logs stay readable; the upstream stack frames
+        # don't add diagnostic value when we already know it's the wire.
+        _LOGGER.warning("DESS cloud transient (%s): %s", _action_of(err), err)
+        return default
+    except asyncio.TimeoutError as err:
+        _LOGGER.warning("DESS cloud timed out: %s", err)
+        return default
+    except ApiError as err:
+        # Cloud-side envelope error (e.g. err=3 rate-limit, err=6000 backend
+        # crash, err=10 auth). Same treatment as TransportError above: the
+        # cloud is having a bad day, not a code bug — one-line WARNING beats
+        # a stack trace per failed call.
+        _LOGGER.warning("DESS cloud API error (%s): %s", _action_of(err), err)
+        return default
+    except Exception:
+        _LOGGER.exception("Error while awaiting %s", coro)
         return default
 
 
-class MainCoordinator(DataUpdateCoordinator):
-    devices = []
-    auth = None
-    auth_issued_at = None
+def _action_of(err: BaseException) -> str:
+    """Best-effort label for which API call timed out (helps grep the logs)."""
+    return getattr(err, "action", None) or type(err).__name__
 
-    def __init__(self, hass: HomeAssistant, config_entry):
+
+def _clamp(value: object, low: int, high: int) -> int:
+    try:
+        return max(low, min(high, int(value)))  # type: ignore[arg-type]
+    except (TypeError, ValueError):
+        return low
+
+
+class MainCoordinator(DataUpdateCoordinator):
+    devices: list[dict[str, Any]] = []
+
+    def __init__(
+        self,
+        hass: HomeAssistant,
+        config_entry: Any,
+        client: DessmonitorClient,
+        device_cache: DeviceCache,
+    ) -> None:
+        interval_seconds = _clamp(
+            config_entry.options.get(CONF_MAIN_UPDATE_INTERVAL, DEFAULT_MAIN_UPDATE_INTERVAL),
+            MIN_MAIN_UPDATE_INTERVAL,
+            MAX_MAIN_UPDATE_INTERVAL,
+        )
         super().__init__(
             hass,
             _LOGGER,
-            # Name of the data. For logging purposes.
             name="Main coordinator",
             config_entry=config_entry,
-            # Polling interval. Will only be polled if there are subscribers.
-            update_interval=timedelta(seconds=60),
-            # Set always_update to `False` if the data returned from the
-            # api can be compared via `__eq__` to avoid duplicate updates
-            # being dispatched to listeners
-            always_update=False
-
+            update_interval=timedelta(seconds=interval_seconds),
+            always_update=False,
         )
-        # self.my_api = my_api
-        # self._device: MyDevice | None = None
+        self._update_timeout = max(interval_seconds, 30)
+        self._client = client
+        self._device_cache = device_cache
+        self._pars_refresh_seconds = DEFAULT_PARS_REFRESH_INTERVAL
+        self._stale_live_seconds = STALE_LIVE_DATA_MAX_SECONDS
+        self._pars_cache: dict[str, dict[str, Any]] = {}
+        self._pars_fetched_at: dict[str, float] = {}
+        self._last_device_data: dict[str, dict[str, Any]] = {}
+        self._last_live_fetch_at: dict[str, dict[str, float]] = {}
 
-    async def _async_setup(self):
-        """Set up the coordinator
+    @property
+    def client(self) -> DessmonitorClient:
+        return self._client
 
-        This is the place to set up your coordinator,
-        or to load data, that only needs to be loaded once.
+    @property
+    def device_cache(self) -> DeviceCache:
+        return self._device_cache
 
-        This method will be called automatically during
-        coordinator.async_config_entry_first_refresh.
-        """
-        await self.create_auth()
+    async def _async_setup(self) -> None:
+        async with async_timeout.timeout(30):
+            await self._client.session.get_auth()
+            self.devices = await self.get_active_devices()
+            _LOGGER.debug("coordinator setup devices count: %s", len(self.devices))
 
-        self.devices = await self.get_active_devices()
-        print('coordinator setup devices count: ', len(self.devices))
-
-        # token = self.auth['token']
-        # secret = self.auth['secret']
-        # query_device_ctrl_fields = [get_device_ctrl_fields(token, secret, device) for device in self.devices]
-        # query_device_ctrl_fields_results = await asyncio.gather(*query_device_ctrl_fields)
-        # for i, device_field_data in enumerate(query_device_ctrl_fields_results):
-        #     for k, field_data in device_field_data['field']:
-        #         async_add_entities(InverterDynamicSettingSelect())
-        # await self.async_refresh()
-        # await self._async_update_data()
-
-    async def create_auth(self):
-        username = self.config_entry.data["username"]
-        password_hash = self.config_entry.data["password_hash"]
-        auth = await auth_user(username, password_hash)
-        auth_issued_at = int(datetime.now().timestamp())
-
-        self.auth = auth
-        self.auth_issued_at = auth_issued_at
-
-    async def check_auth(self):
-        now = int(datetime.now().timestamp())
-        # print(self.auth)
-        if self.auth_issued_at is None or (now - (self.auth_issued_at + (self.auth['expire'])) <= 3600):
-            await self.create_auth()
-
-    async def get_active_devices(self):
-        devices = await get_devices(self.auth['token'], self.auth['secret'])
+    async def get_active_devices(self) -> list[dict[str, Any]]:
+        devices = await self._device_cache.async_get_devices(
+            lambda: self._client.devices.list()
+        )
         active_devices = [device for device in devices if device['status'] != 1]
-        selected_devices = [device for device in active_devices if
-                            str(device['pn']) in self.config_entry.options["devices"] or str(device['uid']) in
-                            self.config_entry.options["devices"]] if (
-                "devices" in self.config_entry.options and len(
-            self.config_entry.options["devices"]) > 0) else active_devices
-        return selected_devices
+        if "devices" in self.config_entry.options and len(self.config_entry.options["devices"]) > 0:
+            return [
+                device for device in active_devices
+                if str(device['pn']) in self.config_entry.options["devices"]
+                or str(device['uid']) in self.config_entry.options["devices"]
+            ]
+        return active_devices
 
-    async def _async_update_data(self):
-        """Fetch data from API endpoint.
+    async def _get_pars_cached(self, pn: str, identity: DeviceIdentity) -> dict[str, Any]:
+        # ``queryDeviceParsEs`` returns mostly static configuration (output
+        # priority, charging current, voltage thresholds…). Polling it at the
+        # live-data cadence was tripping the cloud's per-action rate limit
+        # (err=3) under summer peak load and cascading into err=6000 outages
+        # on the live-data endpoint. On fetch failure with an existing cache,
+        # we keep the stale value and defer the next attempt by a full
+        # interval so we don't pound an already-failing API.
+        now = monotonic()
+        cached = self._pars_cache.get(pn)
+        last = self._pars_fetched_at.get(pn, 0.0)
+        if cached is not None and (now - last) < self._pars_refresh_seconds:
+            return cached
+        fresh = await safe_call(self._client.devices.pars(identity), default=None)
+        if fresh is not None:
+            self._pars_cache[pn] = fresh
+            self._pars_fetched_at[pn] = now
+            return fresh
+        if cached is not None:
+            self._pars_fetched_at[pn] = now
+            return cached
+        return {}
 
-        This is the place to pre-process the data to lookup tables
-        so entities can quickly look up their data.
-        """
+    async def _async_update_data(self) -> dict[str, dict[str, Any]]:
         try:
-            async with async_timeout.timeout(120):
-                print('coordinator update data devices')
+            async with async_timeout.timeout(self._update_timeout):
+                _LOGGER.debug("coordinator update data devices")
 
-                await self.check_auth()
                 self.devices = await self.get_active_devices()
 
-                token = self.auth['token']
-                secret = self.auth['secret']
-
-                async def build_device_data(device):
+                async def build_device_data(device: dict[str, Any]) -> tuple[str, dict[str, Any]]:
                     pn = device['pn']
-                    last_data = await safe_call(get_device_last_data(token, secret, device), default={})
-                    energy_flow = await safe_call(get_device_energy_flow(token, secret, device), default={})
-                    pars = await safe_call(get_device_pars(token, secret, device), default={})
-                    ctrl_fields = await safe_call(get_device_ctrl_fields(token, secret, device), default={'field': []})
-                    output_priority = await safe_call(get_inverter_output_priority(token, secret, ctrl_fields, device), default={})
+                    identity = DeviceIdentity.from_dict(device)
+                    last_data = await safe_call(self._client.devices.last_data(identity), default={})
+                    energy_flow = await safe_call(self._client.devices.energy_flow(identity), default={})
+                    pars = await self._get_pars_cached(pn, identity)
+                    ctrl_fields = await safe_call(
+                        self._device_cache.async_get_ctrl_fields(
+                            pn, lambda: self._client.control.get_fields(identity)
+                        ),
+                        default={'field': []},
+                    )
+                    output_priority = await safe_call(
+                        self._device_cache.async_get_output_priority(
+                            pn, lambda: get_inverter_output_priority(self._client, device)
+                        ),
+                        default=None,
+                    )
 
-                    return pn, {
+                    # Graceful degradation: when a single live call comes back
+                    # empty (cloud err=6000, transient timeout, etc.), reuse
+                    # the previous tick's value instead of letting sensors
+                    # flap to Unavailable for one cycle. Capped at
+                    # ``_stale_live_seconds`` so a real outage eventually
+                    # surfaces as Unavailable rather than yesterday's reading.
+                    now = monotonic()
+                    prev = self._last_device_data.get(pn) or {}
+                    fetched_at = self._last_live_fetch_at.setdefault(pn, {})
+
+                    if last_data:
+                        fetched_at['last_data'] = now
+                    elif (now - fetched_at.get('last_data', 0.0)) <= self._stale_live_seconds:
+                        last_data = prev.get('last_data') or {}
+
+                    if energy_flow:
+                        fetched_at['energy_flow'] = now
+                    elif (now - fetched_at.get('energy_flow', 0.0)) <= self._stale_live_seconds:
+                        energy_flow = prev.get('energy_flow') or {}
+
+                    result = {
                         'last_data': last_data,
                         'energy_flow': energy_flow,
                         'pars': pars,
@@ -127,20 +211,23 @@ class MainCoordinator(DataUpdateCoordinator):
                             'output_priority': output_priority,
                         }
                     }
+                    self._last_device_data[pn] = result
+                    return pn, result
 
                 tasks = [build_device_data(device) for device in self.devices]
-
                 device_data = await asyncio.gather(*tasks)
-
-                data_map = {pn: data for pn, data in device_data}
-
-                return data_map
-                # return
-        except TimeoutError as err:
-            # Raising ConfigEntryAuthFailed will cancel future updates
-            # and start a config flow with SOURCE_REAUTH (async_step_reauth)
-            raise err
-        except AuthInvalidateError:
-            await self.create_auth()
-            # raise ConfigEntryAuthFailed from err
-        # except ApiError as err:
+                return {pn: data for pn, data in device_data}
+        except TimeoutError:
+            raise
+        except AuthError as err:
+            await self._client.session.invalidate()
+            raise UpdateFailed("auth token invalidated, will re-issue next tick") from err
+        except TransportError as err:
+            # Wrap as UpdateFailed so HA's DataUpdateCoordinator logs a single
+            # WARNING line ("Error fetching ... data: ...") instead of the
+            # full aiohttp + SDK traceback.
+            raise UpdateFailed(f"DESS cloud transient: {err}") from err
+        except ApiError as err:
+            # Top-level call (e.g. ``get_active_devices``) failed with a
+            # non-auth envelope error. Same rationale as TransportError above.
+            raise UpdateFailed(f"DESS cloud API error: {err}") from err

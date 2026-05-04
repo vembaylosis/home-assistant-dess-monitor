@@ -1,21 +1,115 @@
+import asyncio
+import logging
+import random
+import re
 from datetime import timedelta, datetime
+from typing import Optional
 
-from homeassistant.components.number import NumberEntity, NumberMode
-from homeassistant.const import EntityCategory
+import async_timeout
+from homeassistant.components.number import (
+    NumberDeviceClass,
+    NumberEntity,
+    NumberMode,
+    RestoreNumber,
+)
+from homeassistant.const import (
+    EntityCategory,
+    PERCENTAGE,
+    UnitOfElectricCurrent,
+    UnitOfElectricPotential,
+    UnitOfFrequency,
+    UnitOfPower,
+    UnitOfTemperature,
+    UnitOfTime,
+)
 from homeassistant.core import HomeAssistant
 from homeassistant.helpers.device_registry import DeviceInfo
 from homeassistant.helpers.entity_platform import AddEntitiesCallback
-from homeassistant.helpers.restore_state import RestoreEntity
 from homeassistant.helpers.update_coordinator import CoordinatorEntity
 
 from custom_components.dess_monitor import MainCoordinator, HubConfigEntry
-from custom_components.dess_monitor.api import set_ctrl_device_param, get_device_ctrl_value
-from custom_components.dess_monitor.const import DOMAIN
+from custom_components.dess_monitor.const import (
+    DOMAIN,
+    CONF_DYNAMIC_SETTINGS_INTERVAL,
+    DEFAULT_DYNAMIC_SETTINGS_INTERVAL,
+    MIN_DYNAMIC_SETTINGS_INTERVAL,
+    MAX_DYNAMIC_SETTINGS_INTERVAL,
+    DYNAMIC_SETTINGS_API_TIMEOUT,
+    CONF_BATTERY_VIRTUAL_ENABLED,
+    DEFAULT_BATTERY_VIRTUAL_ENABLED,
+    DEFAULT_BATTERY_CAPACITY_AH,
+    DEFAULT_BATTERY_VOLTAGE_FULL,
+    MIN_BATTERY_CAPACITY_AH,
+    MAX_BATTERY_CAPACITY_AH,
+    MIN_BATTERY_VOLTAGE_FULL,
+    MAX_BATTERY_VOLTAGE_FULL,
+)
+from custom_components.dess_monitor.coordinators.coordinator import _clamp
 from custom_components.dess_monitor.hub import InverterDevice
+from custom_components.dess_monitor.sdk import DeviceIdentity
 from custom_components.dess_monitor.util import resolve_number_with_unit
 
-SCAN_INTERVAL = timedelta(seconds=30)
+_LOGGER = logging.getLogger(__name__)
+
+# See ``select.py`` — platform interval is the throttle-check cadence; actual
+# API hit rate is bounded by ``CONF_DYNAMIC_SETTINGS_INTERVAL``.
+SCAN_INTERVAL = timedelta(seconds=60)
 PARALLEL_UPDATES = 1
+
+
+# Map the cloud's free-form unit string onto an HA constant + matching device
+# class. Entries we don't recognise fall through to no-unit/no-class so the
+# entity still works, just without unit-specific UI affordances.
+_UNIT_TO_HA: dict[str, tuple[str, Optional[NumberDeviceClass]]] = {
+    "V": (UnitOfElectricPotential.VOLT, NumberDeviceClass.VOLTAGE),
+    "A": (UnitOfElectricCurrent.AMPERE, NumberDeviceClass.CURRENT),
+    "%": (PERCENTAGE, None),
+    "Hz": (UnitOfFrequency.HERTZ, NumberDeviceClass.FREQUENCY),
+    "HZ": (UnitOfFrequency.HERTZ, NumberDeviceClass.FREQUENCY),
+    "W": (UnitOfPower.WATT, NumberDeviceClass.POWER),
+    "kW": (UnitOfPower.KILO_WATT, NumberDeviceClass.POWER),
+    "\u00b0C": (UnitOfTemperature.CELSIUS, NumberDeviceClass.TEMPERATURE),
+    "min": (UnitOfTime.MINUTES, NumberDeviceClass.DURATION),
+    "minutes": (UnitOfTime.MINUTES, NumberDeviceClass.DURATION),
+    "s": (UnitOfTime.SECONDS, NumberDeviceClass.DURATION),
+    "sec": (UnitOfTime.SECONDS, NumberDeviceClass.DURATION),
+    "h": (UnitOfTime.HOURS, NumberDeviceClass.DURATION),
+    "hour": (UnitOfTime.HOURS, NumberDeviceClass.DURATION),
+    "hours": (UnitOfTime.HOURS, NumberDeviceClass.DURATION),
+    "day": (UnitOfTime.DAYS, NumberDeviceClass.DURATION),
+    "days": (UnitOfTime.DAYS, NumberDeviceClass.DURATION),
+}
+
+# "60.0~66V"  /  "50.0~80A"  /  "1~900min"  /  "0-900min"  /  "1-90".
+_HINT_RANGE_RE = re.compile(
+    r"^\s*(-?\d+(?:\.\d+)?)\s*[~\-\u2013\u2014]\s*(-?\d+(?:\.\d+)?)\s*([A-Za-z%\u00b0]*)\s*$"
+)
+
+
+def _resolve_unit(raw: Optional[str]) -> tuple[Optional[str], Optional[NumberDeviceClass]]:
+    if not raw:
+        return None, None
+    if raw in _UNIT_TO_HA:
+        return _UNIT_TO_HA[raw]
+    return raw, None  # unknown unit — show as-is, no device_class
+
+
+def _parse_hint(hint: Optional[str]) -> Optional[tuple[float, float, bool]]:
+    """Return ``(min, max, has_decimal)`` parsed from a ``"<a>~<b>[unit]"`` hint."""
+    if not hint or not isinstance(hint, str):
+        return None
+    m = _HINT_RANGE_RE.match(hint)
+    if not m:
+        return None
+    a_raw, b_raw = m.group(1), m.group(2)
+    try:
+        a = float(a_raw)
+        b = float(b_raw)
+    except ValueError:
+        return None
+    lo, hi = (a, b) if a <= b else (b, a)
+    has_decimal = "." in a_raw or "." in b_raw
+    return lo, hi, has_decimal
 
 
 async def async_setup_entry(
@@ -28,6 +122,17 @@ async def async_setup_entry(
     coordinator = hub.coordinator
     coordinator_data = hub.coordinator.data
 
+    # Per-device virtual-battery config entities are only created when the
+    # entry-level master toggle is on; the estimator further stays dormant
+    # until both numbers are non-zero.
+    if config_entry.options.get(CONF_BATTERY_VIRTUAL_ENABLED, DEFAULT_BATTERY_VIRTUAL_ENABLED):
+        virtual_battery_numbers: list[NumberEntity] = []
+        for item in hub.items:
+            virtual_battery_numbers.append(VirtualBatteryCapacityNumber(item, coordinator))
+            virtual_battery_numbers.append(VirtualBatteryVoltageFullNumber(item, coordinator))
+        if virtual_battery_numbers:
+            async_add_entities(virtual_battery_numbers)
+
     new_devices = []
     for item in hub.items:
         # grid sensors
@@ -36,17 +141,14 @@ async def async_setup_entry(
         fields = coordinator_data[item.inverter_id]['ctrl_fields']
         if fields is None:
             continue
-        async_add_entities(list(
-            map(
-                lambda field_data: InverterDynamicSettingNumber(item, coordinator, field_data),
-                filter(lambda field: 'item' not in field, fields)
+        if config_entry.options.get('dynamic_settings', False) is True:
+            async_add_entities(list(
+                map(
+                    lambda field_data: InverterDynamicSettingNumber(item, coordinator, field_data),
+                    filter(lambda field: 'item' not in field, fields)
+                )
             )
-        )
-        )
-    for item in hub.items:
-        new_devices.extend([
-            BatteryCapacityNumber(item, hass)
-        ])
+            )
     if new_devices:
         async_add_entities(new_devices)
 
@@ -100,113 +202,170 @@ class NumberBase(CoordinatorEntity, NumberEntity):
     #     self._inverter_device.remove_callback(self.async_write_ha_state)
 
 
-class InverterDynamicSettingNumber(NumberBase):
+class InverterDynamicSettingNumber(NumberBase, RestoreNumber):
     _attr_native_value = None
     should_poll = True
     _attr_entity_category = EntityCategory.CONFIG
 
-    # _attr_entity_category = EntityCategory.CONFIG
+    async def async_added_to_hass(self) -> None:
+        """Restore the previous value before the (slow) cloud confirms it."""
+        await super().async_added_to_hass()
+        last = await self.async_get_last_number_data()
+        if last is not None and last.native_value is not None:
+            self._attr_native_value = float(last.native_value)
+            # Pretend we just polled — first real refresh will happen one
+            # ``_poll_interval`` later, sparing the cloud at startup.
+            self._last_updated = int(datetime.now().timestamp())
 
     def __init__(self, inverter_device: InverterDevice, coordinator: MainCoordinator, field_data):
         super().__init__(inverter_device, coordinator)
-        self._last_updated = None
         self._service_param_id = field_data['id']
-        # "hint": "25.0~31.5V 48.0~61.0V"
-        # self._id
         self._attr_unique_id = f"{self._inverter_device.inverter_id}_settings_{field_data['id']}"
         self._attr_name = f"{self._inverter_device.name} SET {field_data['name']}"
-        self._attr_native_unit_of_measurement = 'V'  # field_data['unit']
-        self._attr_native_min_value = 0
-        self._attr_native_max_value = 100
-        self._attr_native_step = 0.1
-        self._attr_mode = NumberMode.BOX
 
-    # async def async_added_to_hass(self) -> None:
-    #     """Handle entity which will be added."""
-    #
-    #     if (last_sensor_data := await self.async_get_last_extra_data()) is not None:
-    #         # print('last_sensor_data', last_sensor_data.as_dict())
-    #         self._attr_current_option = (last_sensor_data.as_dict())['native_value']
-    #     else:
-    #         self._attr_current_option = None
-    #     # await self.async_update()
-    #     await super().async_added_to_hass()
+        unit, device_class = _resolve_unit(field_data.get('unit'))
+        self._attr_native_unit_of_measurement = unit
+        if device_class is not None:
+            self._attr_device_class = device_class
 
-    async def async_update(self):
-        now = int(datetime.now().timestamp())
-        if self._last_updated is not None and now - self._last_updated > 300:
-            pass
+        # Range and step: try to derive from the cloud's "hint" string
+        # ("60.0~66V", "1~900min", "1-90"); fall back to wide defaults so the
+        # field stays editable even when the device omits a hint.
+        parsed = _parse_hint(field_data.get('hint'))
+        if parsed is not None:
+            lo, hi, has_decimal = parsed
+            self._attr_native_min_value = lo
+            self._attr_native_max_value = hi
+            self._attr_native_step = 0.1 if has_decimal else 1.0
         else:
-            if self._last_updated is None:
-                pass
-        if self.coordinator.auth['token'] is not None:
-            response = await get_device_ctrl_value(self.coordinator.auth['token'],
-                                                   self.coordinator.auth['secret'],
-                                                   self._inverter_device.device_data,
-                                                   self._service_param_id)
-            if 'err' not in response:
-                self._attr_native_value = resolve_number_with_unit(response['val'])
-                self._last_updated = now
-                self.async_write_ha_state()
-            else:
-                print('get_device_ctrl_value', self._inverter_device.name, self._service_param_id, response)
+            self._attr_native_min_value = 0.0
+            self._attr_native_max_value = 1000.0
+            self._attr_native_step = 0.1 if unit == UnitOfElectricPotential.VOLT else 1.0
+        self._attr_mode = NumberMode.BOX
+        self._poll_interval = _clamp(
+            coordinator.config_entry.options.get(
+                CONF_DYNAMIC_SETTINGS_INTERVAL, DEFAULT_DYNAMIC_SETTINGS_INTERVAL,
+            ),
+            MIN_DYNAMIC_SETTINGS_INTERVAL,
+            MAX_DYNAMIC_SETTINGS_INTERVAL,
+        )
+        # Stagger initial polls across one interval to avoid hammering the API.
+        now = int(datetime.now().timestamp())
+        self._last_updated: int | None = now - random.randint(0, max(self._poll_interval - 1, 1))
+
+    async def async_update(self) -> None:
+        now = int(datetime.now().timestamp())
+        if self._last_updated is not None and (now - self._last_updated) < self._poll_interval:
+            return
+
+        try:
+            async with async_timeout.timeout(DYNAMIC_SETTINGS_API_TIMEOUT):
+                response = await self.coordinator.client.control.get_value(
+                    DeviceIdentity.from_dict(self._inverter_device.device_data),
+                    self._service_param_id,
+                )
+        except (asyncio.TimeoutError, Exception) as err:
+            _LOGGER.debug(
+                "Skipping update of %s: %s", self._attr_unique_id, err,
+            )
+            return
+
+        if not isinstance(response, dict) or 'err' in response:
+            self._last_updated = now
+            return
+        raw_val = response.get('val')
+        if raw_val is None:
+            self._last_updated = now
+            return
+        self._attr_native_value = resolve_number_with_unit(raw_val)
+        self._last_updated = now
+        self.async_write_ha_state()
 
     async def async_set_native_value(self, value: float) -> None:
         """Update the current value."""
         param_id = self._service_param_id
         param_value = str(value)
-        # print('set_ctrl_device_param', param_id, param_value)
-        await set_ctrl_device_param(
-            self.coordinator.auth['token'],
-            self.coordinator.auth['secret'],
-            self._inverter_device.device_data,
+        await self.coordinator.client.control.set_param(
+            DeviceIdentity.from_dict(self._inverter_device.device_data),
             param_id,
-            param_value
+            param_value,
         )
 
         self._attr_native_value = param_value
         self.async_write_ha_state()
-        # await self.coordinator.async_request_refresh()
 
 
+class _VirtualBatterySettingBase(NumberBase, RestoreNumber):
+    """Common plumbing for the per-device virtual-battery config numbers.
 
-class BatteryCapacityNumber(NumberEntity, RestoreEntity):
-    def __init__(self, inverter_device, hass):
-        self._inverter_device = inverter_device
-        self._hass = hass
-        self._attr_unique_id = f"{inverter_device.inverter_id}_battery_capacity_wh"
-        self._attr_name = f"{inverter_device.name} vSoC Battery Capacity"
-        self._value = None  # Начальное значение, None
+    Values are local-only (no cloud round-trip) and persist across HA
+    restarts via :class:`RestoreNumber`. On restore + on user edit we sync
+    the value into the device's :class:`VirtualBatteryEstimator` so the
+    next coordinator tick picks it up.
+    """
 
-        self._attr_native_min_value = 0
-        self._attr_native_max_value = 100000
-        self._attr_native_step = 10
-        self._attr_mode = NumberMode.BOX
-        self._attr_native_unit_of_measurement = "Wh"
-        self._attr_icon = "mdi:battery"
+    _attr_entity_category = EntityCategory.CONFIG
+    _attr_mode = NumberMode.BOX
 
-        self._attr_device_info = DeviceInfo(
-            identifiers={(DOMAIN, inverter_device.inverter_id)},
-            name=inverter_device.name,
-            manufacturer="ESS",
-            model=inverter_device.device_data.get("pn"),
-            sw_version=inverter_device.firmware_version,
-            hw_version=inverter_device.device_data.get("devcode"),
-        )
+    def _apply_to_estimator(self, value: float) -> None:
+        raise NotImplementedError
 
-    async def async_added_to_hass(self):
+    async def async_added_to_hass(self) -> None:
         await super().async_added_to_hass()
-        state = await self.async_get_last_state()
-        if state and state.state not in ("unknown", "unavailable"):
+        last = await self.async_get_last_number_data()
+        if last is not None and last.native_value is not None:
             try:
-                self._value = float(state.state)
-            except ValueError:
-                self._value = None
-
-    @property
-    def native_value(self):
-        return self._value
+                self._attr_native_value = float(last.native_value)
+            except (TypeError, ValueError):
+                self._attr_native_value = None
+        if self._attr_native_value is not None:
+            self._apply_to_estimator(self._attr_native_value)
 
     async def async_set_native_value(self, value: float) -> None:
-        self._value = value
+        try:
+            self._attr_native_value = float(value)
+        except (TypeError, ValueError):
+            return
+        self._apply_to_estimator(self._attr_native_value)
         self.async_write_ha_state()
+
+
+class VirtualBatteryCapacityNumber(_VirtualBatterySettingBase):
+    """Nominal bank capacity (Ah). Setting to 0 keeps the estimator dormant."""
+
+    _attr_native_unit_of_measurement = "Ah"
+    _attr_native_min_value = MIN_BATTERY_CAPACITY_AH
+    _attr_native_max_value = MAX_BATTERY_CAPACITY_AH
+    _attr_native_step = 1
+
+    def __init__(self, inverter_device: InverterDevice, coordinator: MainCoordinator):
+        super().__init__(inverter_device, coordinator)
+        self._attr_unique_id = f"{inverter_device.inverter_id}_virtual_battery_capacity_ah"
+        self._attr_name = f"{inverter_device.name} Virtual Battery Capacity"
+        self._attr_native_value = float(DEFAULT_BATTERY_CAPACITY_AH)
+
+    def _apply_to_estimator(self, value: float) -> None:
+        estimator = self._inverter_device.virtual_battery
+        if estimator is not None:
+            estimator.set_capacity_ah(value)
+
+
+class VirtualBatteryVoltageFullNumber(_VirtualBatterySettingBase):
+    """Absorb / full-charge voltage threshold for SOC rebase."""
+
+    _attr_device_class = NumberDeviceClass.VOLTAGE
+    _attr_native_unit_of_measurement = UnitOfElectricPotential.VOLT
+    _attr_native_min_value = MIN_BATTERY_VOLTAGE_FULL
+    _attr_native_max_value = MAX_BATTERY_VOLTAGE_FULL
+    _attr_native_step = 0.1
+
+    def __init__(self, inverter_device: InverterDevice, coordinator: MainCoordinator):
+        super().__init__(inverter_device, coordinator)
+        self._attr_unique_id = f"{inverter_device.inverter_id}_virtual_battery_voltage_full"
+        self._attr_name = f"{inverter_device.name} Virtual Battery Full Voltage"
+        self._attr_native_value = float(DEFAULT_BATTERY_VOLTAGE_FULL)
+
+    def _apply_to_estimator(self, value: float) -> None:
+        estimator = self._inverter_device.virtual_battery
+        if estimator is not None:
+            estimator.set_voltage_full(value)
