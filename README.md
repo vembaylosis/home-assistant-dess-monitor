@@ -18,7 +18,7 @@ It talks to the cloud over REST + WebSocket and exposes:
 ## 📚 Documentation
 
 - **[Wiki](https://github.com/Antoxa1081/home-assistant-dess-monitor/wiki)** — supported devices, FAQ, troubleshooting, recipes.
-- **[Configuration guide](docs/Configuration.md)** — every option in the config / options flow, recommended profiles, virtual-battery tuning, migration notes.
+- **[Configuration guide](https://github.com/Antoxa1081/home-assistant-dess-monitor/wiki)** — every option in the config / options flow, recommended profiles, virtual-battery tuning, migration notes.
 
 ---
 
@@ -59,7 +59,7 @@ Then **Settings → Devices & Services → Add Integration → DESS Monitor**.
 | **Virtual battery** | Per-device capacity (Ah), full voltage, chemistry → SoC + power sensors. |
 | **Diagnostics** | Built-in HA diagnostics download (auto-redacted). Optional freshness sensors (`Last Sample Time`, `WebSocket Last Frame At`). |
 
-See the [Configuration guide](docs/Configuration.md) for every option and recommended profile.
+See the [Configuration guide](https://github.com/Antoxa1081/home-assistant-dess-monitor/wiki) for every option and recommended profile.
 
 ---
 
